@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import multer from "multer";
-import OpenAI from "openai";
+import OpenAI, { toFile } from "openai";
 import { randomUUID } from "crypto";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
@@ -42,12 +42,14 @@ export async function registerRoutes(
       if (!req.file) return res.status(400).json({ message: "No audio file provided" });
 
       const openai = getOpenAI();
-      const file = new File([req.file.buffer], req.file.originalname || "audio.webm", {
-        type: req.file.mimetype || "audio/webm",
-      });
+      const audioFile = await toFile(
+        req.file.buffer,
+        req.file.originalname || "recording.webm",
+        { type: req.file.mimetype || "audio/webm" }
+      );
 
       const transcription = await openai.audio.transcriptions.create({
-        file,
+        file: audioFile,
         model: "whisper-1",
         response_format: "text",
         prompt: "The speaker is Joe Maclean, CEO of RK Logistics. He is dictating business ideas about warehouse operations, logistics technology, acquisitions, pricing, dashboard features, OTT trucking, facilities, and team management. Key terms: RK Logistics, On Time Trucking, OTT, FTZ, EBITDA, Insightly, ZoomInfo, pipeline, BD, go freight hub.",

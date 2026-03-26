@@ -187,8 +187,10 @@ export default function VoiceCapture() {
       });
 
       if (!transcribeRes.ok) {
-        const err = await transcribeRes.json();
-        throw new Error(err.message || "Transcription failed");
+        const errText = await transcribeRes.text();
+        let msg = "Transcription failed";
+        try { msg = JSON.parse(errText).message || msg; } catch { msg = errText || msg; }
+        throw new Error(msg);
       }
 
       const { text } = await transcribeRes.json();
@@ -203,8 +205,10 @@ export default function VoiceCapture() {
       });
 
       if (!optimizeRes.ok) {
-        const err = await optimizeRes.json();
-        throw new Error(err.message || "Optimization failed");
+        const errText = await optimizeRes.text();
+        let msg = "Optimization failed";
+        try { msg = JSON.parse(errText).message || msg; } catch { msg = errText || msg; }
+        throw new Error(msg);
       }
 
       const result = await optimizeRes.json();
