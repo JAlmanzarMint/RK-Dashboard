@@ -27,6 +27,8 @@ import FacilityUtilization from "@/pages/FacilityUtilization";
 import FacilityProfile from "@/pages/FacilityProfile";
 import RoutingOptimization from "@/pages/RoutingOptimization";
 import StrategySimulation from "@/pages/StrategySimulation";
+import Pipeline from "@/pages/Pipeline";
+import RoadmapAudienceTesting from "@/pages/RoadmapAudienceTesting";
 
 function AppRouter() {
   return (
@@ -53,6 +55,8 @@ function AppRouter() {
         <Route path="/facility-profile" component={FacilityProfile} />
         <Route path="/routing-optimization" component={RoutingOptimization} />
         <Route path="/strategy-simulation" component={StrategySimulation} />
+        <Route path="/pipeline" component={Pipeline} />
+        <Route path="/roadmap-testing" component={RoadmapAudienceTesting} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

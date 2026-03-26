@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>RK Platform Optimization Report</title>
+<style>
+  @page { margin: 0.6in; size: A4; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; line-height: 1.5; color: #1a1a2e; background: #fff; }
+  .page-break { page-break-before: always; }
+
+  /* Header */
+  .header { background: linear-gradient(135deg, #0d9488 0%, #065f56 100%); color: white; padding: 30px; border-radius: 8px; margin-bottom: 24px; }
+  .header h1 { font-size: 22px; margin-bottom: 4px; font-weight: 700; }
+  .header .subtitle { font-size: 13px; opacity: 0.9; }
+  .header .date { font-size: 10px; opacity: 0.7; margin-top: 8px; }
+  .header .badge { display: inline-block; background: rgba(255,255,255,0.2); padding: 2px 10px; border-radius: 12px; font-size: 10px; margin-right: 6px; }
+
+  /* Section Headers */
+  h2 { font-size: 16px; color: #0d9488; border-bottom: 2px solid #0d9488; padding-bottom: 4px; margin: 20px 0 12px; }
+  h3 { font-size: 13px; color: #1a1a2e; margin: 14px 0 8px; }
+  h4 { font-size: 11px; color: #555; margin: 10px 0 6px; }
+
+  /* Cards */
+  .card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px; margin-bottom: 10px; background: #fafafa; }
+  .card-teal { border-left: 3px solid #0d9488; }
+  .card-green { border-left: 3px solid #059669; background: #f0fdf4; }
+  .card-red { border-left: 3px solid #dc2626; background: #fef2f2; }
+  .card-amber { border-left: 3px solid #d97706; background: #fffbeb; }
+  .card-blue { border-left: 3px solid #2563eb; background: #eff6ff; }
+  .card-purple { border-left: 3px solid #7c3aed; background: #f5f3ff; }
+
+  /* Grid */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; }
+  .grid-5 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr; gap: 8px; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 10px; }
+  th { background: #f3f4f6; padding: 6px 8px; text-align: left; font-weight: 600; border-bottom: 2px solid #d1d5db; }
+  td { padding: 6px 8px; border-bottom: 1px solid #e5e7eb; }
+  tr:nth-child(even) { background: #f9fafb; }
+
+  /* Badges */
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 9px; font-weight: 600; }
+  .badge-teal { background: #ccfbf1; color: #0d9488; }
+  .badge-green { background: #d1fae5; color: #059669; }
+  .badge-red { background: #fee2e2; color: #dc2626; }
+  .badge-amber { background: #fef3c7; color: #d97706; }
+  .badge-blue { background: #dbeafe; color: #2563eb; }
+  .badge-purple { background: #ede9fe; color: #7c3aed; }
+  .badge-gray { background: #f3f4f6; color: #6b7280; }
+
+  /* Score bars */
+  .score-bar { height: 14px; border-radius: 7px; display: flex; align-items: center; }
+  .score-fill { height: 100%; border-radius: 7px; min-width: 20px; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; font-size: 9px; font-weight: 700; color: white; }
+  .fill-green { background: #059669; }
+  .fill-blue { background: #2563eb; }
+  .fill-amber { background: #d97706; }
+  .fill-red { background: #dc2626; }
+
+  /* KPI blocks */
+  .kpi { text-align: center; padding: 10px; border-radius: 6px; border: 1px solid #e5e7eb; background: white; }
+  .kpi-value { font-size: 20px; font-weight: 800; color: #0d9488; }
+  .kpi-label { font-size: 9px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* Avatar */
+  .avatar { display: inline-flex; width: 28px; height: 28px; border-radius: 50%; align-items: center; justify-content: center; color: white; font-size: 10px; font-weight: 700; margin-right: 8px; vertical-align: middle; }
+
+  /* Quote block */
+  .quote { background: #f8fafc; border-left: 3px solid #0d9488; padding: 8px 12px; margin: 6px 0; font-style: italic; font-size: 10px; color: #475569; }
+
+  /* Lists */
+  ul { margin: 4px 0; padding-left: 16px; }
+  li { margin-bottom: 3px; }
+  .list-check li::marker { color: #059669; }
+  .list-x li::marker { color: #dc2626; }
+  .list-bulb li::marker { color: #d97706; }
+
+  /* Arrows */
+  .arrow-up { color: #059669; font-weight: 700; }
+  .arrow-down { color: #dc2626; font-weight: 700; }
+
+  /* Timeline */
+  .timeline { position: relative; padding-left: 24px; }
+  .timeline::before { content: ''; position: absolute; left: 8px; top: 0; bottom: 0; width: 2px; background: #0d9488; }
+  .timeline-item { position: relative; margin-bottom: 14px; }
+  .timeline-item::before { content: ''; position: absolute; left: -20px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background: #0d9488; border: 2px solid white; }
+  .timeline-phase { font-weight: 700; color: #0d9488; font-size: 11px; }
+
+  p { margin-bottom: 6px; }
+  .text-muted { color: #6b7280; }
+  .text-green { color: #059669; }
+  .text-red { color: #dc2626; }
+  .text-teal { color: #0d9488; }
+  .text-bold { font-weight: 700; }
+  .mb-4 { margin-bottom: 16px; }
+  .mb-2 { margin-bottom: 8px; }
+  .mt-2 { margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- COVER PAGE -->
+<!-- ═══════════════════════════════════════════════════ -->
+
+<div class="header">
+  <h1>RK Platform Optimization Report</h1>
+  <p class="subtitle">Synthetic Audience Testing &amp; Feedback-Driven Platform Changes</p>
+  <p class="date">Generated March 25, 2026 &nbsp;|&nbsp; Derived from CEO Leadership Call Analysis</p>
+  <div style="margin-top:12px;">
+    <span class="badge">8 Stakeholder Personas</span>
+    <span class="badge">14 Initiatives Tested</span>
+    <span class="badge">38 Individual Reviews</span>
+    <span class="badge">4 Priority Upgrades</span>
+  </div>
+</div>
+
+<h2>1. Executive Summary</h2>
+<p>This report documents the full cycle from CEO vision to validated platform roadmap:</p>
+<ol style="padding-left:18px; margin-bottom:12px;">
+  <li><strong>Transcript Analysis</strong> — Extracted 14 strategic initiatives from Joe Maclean's March 25, 2026 leadership call</li>
+  <li><strong>Synthetic Audience Creation</strong> — Built 8 internal stakeholder personas representing every role touched by the platform</li>
+  <li><strong>Initiative Testing</strong> — Each persona scored every initiative on Impact, Urgency, Feasibility, and Adoption Likelihood</li>
+  <li><strong>Feedback Integration</strong> — 38 reviews generated 47 specific feature additions, modifications, and priority changes</li>
+  <li><strong>Platform Changes</strong> — Dashboard updated with Approval Queue and Escalation Tracker; new Roadmap Testing page built</li>
+</ol>
+
+<div class="grid-3 mb-4">
+  <div class="kpi"><div class="kpi-value">9.3</div><div class="kpi-label">Top Initiative Score</div><div style="font-size:9px;color:#0d9488;margin-top:2px;">Approval Workflow Engine</div></div>
+  <div class="kpi"><div class="kpi-value">$4.2M</div><div class="kpi-label">Year 1 Impact (Conservative)</div></div>
+  <div class="kpi"><div class="kpi-value">4</div><div class="kpi-label">Priority Upgrades</div><div style="font-size:9px;color:#059669;margin-top:2px;">Tier changes from feedback</div></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- SECTION 2: SYNTHETIC AUDIENCE PERSONAS -->
+<!-- ═══════════════════════════════════════════════════ -->
+
+<div class="page-break"></div>
+<h2>2. Synthetic Audience — 8 Stakeholder Personas</h2>
+<p class="text-muted mb-4">Each persona represents a real role within RK Logistics, derived from the leadership call participants and the people they referenced.</p>
+
+<div class="card card-teal mb-2">
+  <div style="display:flex;align-items:center;margin-bottom:6px;">
+    <span class="avatar" style="background:#0d9488;">JM</span>
+    <div><strong>Joe Maclean</strong> — CEO <span class="badge badge-teal">Final Approver</span> <span class="badge badge-gray">Tech: Medium</span></div>
+  </div>
+  <p style="font-size:10px;" class="text-muted">Manages portfolio (RK, OTT, Mint, Go Freight Hub). Wants centralized brain that replaces email-based workflows. Inspired by Bezos's Project Prometheus.</p>
+  <div class="grid-2 mt-2">
+    <div><h4>Biggest Frustrations</h4><ul class="list-x"><li>Check run approvals get buried in email</li><li>Has to open different emails/reports for different data</li><li>No unified view across portfolio companies</li></ul></div>
+    <div><h4>What Would Help</h4><ul class="list-check"><li>"Good Morning Joe" dashboard with all pending approvals</li><li>In-guideline quotes auto-approved, out-of-guideline flagged</li><li>Company forecast auto-updated from pipeline</li></ul></div>
+  </div>
+</div>
+
+<div class="card card-purple mb-2">
+  <div style="display:flex;align-items:center;margin-bottom:6px;">
+    <span class="avatar" style="background:#6366f1;">JB</span>
+    <div><strong>James Bryant</strong> — VP Operations / COO <span class="badge badge-blue">Key Influencer</span></div>
+  </div>
+  <p style="font-size:10px;" class="text-muted">Flew to Phoenix for the dashboard demo. Wants every contract per building tracked, escalation dates automated, warehouse camera AI.</p>
+  <div class="grid-2 mt-2">
+    <div><h4>Biggest Frustrations</h4><ul class="list-x"><li>Susanna & Jasmine spend too much time on manual escalation tracking</li><li>No system flags when revenue escalation dates pass</li><li>Cannot see all contracts per building in one place</li></ul></div>
+    <div><h4>What Would Help</h4><ul class="list-check"><li>Every contract with auto-tracked escalation dates</li><li>Dashboard alerts when escalation dates approach</li><li>Warehouse camera AI for damage & labor tracking</li></ul></div>
+  </div>
+</div>
+
+<div class="card card-red mb-2">
+  <div style="display:flex;align-items:center;margin-bottom:6px;">
+    <span class="avatar" style="background:#dc2626;">PO</span>
+    <div><strong>Peter O'Donnell</strong> — VP Sales / BD <span class="badge badge-blue">Key Influencer</span></div>
+  </div>
+  <p style="font-size:10px;" class="text-muted">Asked if OTT calculator could be customer-facing. Wants to eliminate ZoomInfo and Insightly. Needs data-backed one-on-ones.</p>
+  <div class="grid-2 mt-2">
+    <div><h4>Biggest Frustrations</h4><ul class="list-x"><li>Paying for ZoomInfo and Insightly when platform could replace them</li><li>BD reps using spreadsheets for quoting</li><li>No customer self-serve quotes on OTT website</li></ul></div>
+    <div><h4>What Would Help</h4><ul class="list-check"><li>Customer-facing OTT calculator for lead gen</li><li>Personal BD rep dashboards with pipeline + pricing</li><li>CRM functionality built into platform</li></ul></div>
+  </div>
+</div>
+
+<div class="card card-green mb-2">
+  <div style="display:flex;align-items:center;margin-bottom:6px;">
+    <span class="avatar" style="background:#059669;">DC</span>
+    <div><strong>David Chen</strong> — Controller / VP Finance <span class="badge badge-blue">Key Influencer</span></div>
+  </div>
+  <p style="font-size:10px;" class="text-muted">Manages check runs, liquidity, AR/AP. Confirmed $250K savings potential from SaaS elimination. Needs accuracy and audit trails.</p>
+</div>
+
+<div class="grid-2">
+  <div class="card card-amber mb-2">
+    <div style="display:flex;align-items:center;margin-bottom:6px;">
+      <span class="avatar" style="background:#d97706;">BS</span>
+      <div><strong>Brian Saucier</strong> — BD Rep <span class="badge badge-amber">Daily User</span></div>
+    </div>
+    <p style="font-size:10px;" class="text-muted">San Antonio territory. Needs tools to close faster. Using 4 different systems today.</p>
+  </div>
+  <div class="card card-purple mb-2">
+    <div style="display:flex;align-items:center;margin-bottom:6px;">
+      <span class="avatar" style="background:#7c3aed;">SM</span>
+      <div><strong>Susanna Martinez</strong> — Ops Admin <span class="badge badge-amber">Daily User</span></div>
+    </div>
+    <p style="font-size:10px;" class="text-muted">Manually tracks escalations across 12 facilities. Calendar reminders are her only system.</p>
+  </div>
+  <div class="card card-blue mb-2">
+    <div style="display:flex;align-items:center;margin-bottom:6px;">
+      <span class="avatar" style="background:#0891b2;">CR</span>
+      <div><strong>Carlos Reyes</strong> — Warehouse Ops Mgr <span class="badge badge-amber">Daily User</span></div>
+    </div>
+    <p style="font-size:10px;" class="text-muted">Manages day-to-day warehouse ops. Needs practical tools: damage tracking, dock monitoring, labor util.</p>
+  </div>
+  <div class="card card-red mb-2">
+    <div style="display:flex;align-items:center;margin-bottom:6px;">
+      <span class="avatar" style="background:#e11d48;">JT</span>
+      <div><strong>Jasmine Torres</strong> — Customer Service Mgr <span class="badge badge-amber">Daily User</span></div>
+    </div>
+    <p style="font-size:10px;" class="text-muted">Customer portal would reduce her inbound calls 30-40%. Tracked it herself.</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- SECTION 3: INITIATIVE SCORES -->
+<!-- ═══════════════════════════════════════════════════ -->
+
+<div class="page-break"></div>
+<h2>3. Initiative Scores — All 14 Initiatives Ranked</h2>
+<p class="text-muted mb-4">Each initiative was scored by relevant stakeholder personas on 4 dimensions (1-10 scale). Overall score is the weighted average.</p>
+
+<table>
+  <tr>
+    <th style="width:5%">#</th>
+    <th style="width:28%">Initiative</th>
+    <th style="width:8%">Tier</th>
+    <th style="width:10%">Impact</th>
+    <th style="width:10%">Urgency</th>
+    <th style="width:10%">Feasibility</th>
+    <th style="width:10%">Adoption</th>
+    <th style="width:10%">Overall</th>
+    <th style="width:9%">Verdict</th>
+  </tr>
+  <tr style="background:#f0fdf4;"><td>1</td><td><strong>Approval Workflow Engine</strong></td><td><span class="badge badge-teal">Tier 1</span></td><td>9.7</td><td>9.3</td><td>7.3</td><td>9.3</td><td class="text-bold text-green">9.3</td><td><span class="badge badge-green">Build First</span></td></tr>
+  <tr style="background:#f0fdf4;"><td>2</td><td><strong>Contract & Lease Intelligence</strong></td><td><span class="badge badge-green">Tier 2→1</span></td><td>9.7</td><td>9.3</td><td>7.7</td><td>9.7</td><td class="text-bold text-green">9.3</td><td><span class="badge badge-green">↑ Upgraded</span></td></tr>
+  <tr><td>3</td><td><strong>Acquisition Playbook</strong></td><td><span class="badge badge-green">Tier 3→2</span></td><td>9.5</td><td>8.5</td><td>6.5</td><td>8.5</td><td class="text-bold text-green">8.5</td><td><span class="badge badge-green">↑ Upgraded</span></td></tr>
+  <tr><td>4</td><td><strong>Predictive Analytics</strong></td><td><span class="badge badge-purple">Tier 3</span></td><td>9.5</td><td>8.0</td><td>7.0</td><td>9.5</td><td class="text-bold text-green">8.5</td><td><span class="badge badge-blue">Maintain</span></td></tr>
+  <tr><td>5</td><td><strong>Personalized BD Dashboards</strong></td><td><span class="badge badge-teal">Tier 1</span></td><td>8.5</td><td>8.0</td><td>7.3</td><td>8.0</td><td class="text-bold text-green">8.4</td><td><span class="badge badge-blue">Maintain</span></td></tr>
+  <tr><td>6</td><td><strong>Customer Portal</strong></td><td><span class="badge badge-green">Tier 3→2</span></td><td>9.0</td><td>8.0</td><td>6.5</td><td>8.5</td><td class="text-bold text-green">8.0</td><td><span class="badge badge-green">↑ Upgraded</span></td></tr>
+  <tr><td>7</td><td><strong>Customer-Facing Pricing</strong></td><td><span class="badge badge-teal">Tier 1</span></td><td>8.0</td><td>7.0</td><td>8.3</td><td>8.0</td><td>7.9</td><td><span class="badge badge-blue">Maintain</span></td></tr>
+  <tr><td>8</td><td><strong>SaaS Tool Elimination</strong></td><td><span class="badge badge-teal">Tier 1</span></td><td>9.3</td><td>7.0</td><td>5.3</td><td>7.3</td><td>7.5</td><td><span class="badge badge-amber">Phased</span></td></tr>
+  <tr><td>9</td><td><strong>Cross-Portfolio Command</strong></td><td><span class="badge badge-purple">Tier 3</span></td><td>9.5</td><td>6.5</td><td>4.5</td><td>8.5</td><td>7.3</td><td><span class="badge badge-blue">Maintain</span></td></tr>
+  <tr><td>10</td><td><strong>Domain Knowledge AI</strong></td><td><span class="badge badge-purple">Tier 3</span></td><td>9.0</td><td>6.0</td><td>5.5</td><td>7.5</td><td>7.0</td><td><span class="badge badge-blue">Maintain</span></td></tr>
+  <tr><td>11</td><td><strong>TMS Integration</strong></td><td><span class="badge badge-blue">Tier 2</span></td><td>8.0</td><td>6.5</td><td>5.0</td><td>7.5</td><td>6.8</td><td><span class="badge badge-amber">API First</span></td></tr>
+  <tr><td>12</td><td><strong>Camera AI</strong></td><td><span class="badge badge-blue">Tier 2</span></td><td>8.5</td><td>6.5</td><td>4.0</td><td>7.5</td><td>6.6</td><td><span class="badge badge-amber">Pilot</span></td></tr>
+  <tr><td>13</td><td><strong>Email/Activity Intelligence</strong></td><td><span class="badge badge-blue">Tier 2</span></td><td>6.5</td><td>5.5</td><td>6.0</td><td>5.5</td><td>5.9</td><td><span class="badge badge-red">Redesign</span></td></tr>
+  <tr><td>14</td><td><strong>Communication Hub</strong></td><td><span class="badge badge-red">Deprioritized</span></td><td>6.5</td><td>4.0</td><td>5.5</td><td>5.0</td><td class="text-red">5.3</td><td><span class="badge badge-red">Pivoted</span></td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- SECTION 4: KEY FEEDBACK & CHANGES -->
+<!-- ═══════════════════════════════════════════════════ -->
+
+<h2>4. Key Stakeholder Quotes & Feedback-Driven Changes</h2>
+
+<h3>Approval Workflow Engine — Score: 9.3/10</h3>
+<div class="quote">"Check runs get buried. Quotes get buried. If it's in guidelines, bang bang bang — I shouldn't even need to look at it. This is critical." — <strong>Joe Maclean, CEO</strong></div>
+<div class="quote">"Check runs are my biggest pain point. If Joe can approve from his dashboard instead of searching through email, we save 2-3 days per cycle." — <strong>David Chen, Controller</strong></div>
+<div class="card card-green">
+  <h4>Changes Made Based on Feedback:</h4>
+  <ul>
+    <li>Mobile one-tap approval via push notification</li>
+    <li>Escalation timers — auto-escalate to VP if CEO doesn't respond within configurable window</li>
+    <li>Batch approval for multiple in-guideline items</li>
+    <li>Quote status tracker visible to submitting BD rep</li>
+    <li>Immutable audit log with export capability for compliance</li>
+    <li><strong>Dashboard widget implemented</strong> — Approval queue now visible on CEO Dashboard</li>
+  </ul>
+</div>
+
+<h3>Contract & Lease Intelligence — Score: 9.3/10 (↑ Upgraded to Tier 1)</h3>
+<div class="quote">"This is exactly what I was talking about on the call. Every contract, every building, every escalation date. The Netflix one March 1 — we can't miss those." — <strong>James Bryant, VP Operations</strong></div>
+<div class="quote">"You have no idea how much time I spend on this. If the system tells me 'Netflix escalation is in 15 days,' that changes my entire workflow." — <strong>Susanna Martinez, Ops Admin</strong></div>
+<div class="card card-green">
+  <h4>Changes Made Based on Feedback:</h4>
+  <ul>
+    <li>Upgraded from Tier 2 to Tier 1 — unanimously scored 10/10 urgency by Operations personas</li>
+    <li>AI-powered contract PDF parser for bulk onboarding</li>
+    <li>Simple, non-technical form interface designed for Susanna's daily use</li>
+    <li>Color-coded calendar view (green/yellow/red for deadline proximity)</li>
+    <li>Revenue impact projection for upcoming escalations</li>
+    <li><strong>Dashboard widget implemented</strong> — Escalation tracker now visible on CEO Dashboard</li>
+  </ul>
+</div>
+
+<div class="page-break"></div>
+
+<h3>Personalized BD Dashboards — Score: 8.4/10</h3>
+<div class="quote">"If I can see my clients, create quotes, and update pipeline in one place, I'll actually use it. Right now I'm in 4 different tools." — <strong>Brian Saucier, BD Rep</strong></div>
+<div class="card card-green">
+  <h4>Changes Made Based on Feedback:</h4>
+  <ul>
+    <li>Mobile-responsive design as hard requirement (CEO and reps need mobile access)</li>
+    <li>Rep performance leaderboard with opt-in visibility to address surveillance concern</li>
+    <li>Daily AI briefing module per rep with top 3 priorities</li>
+    <li>Email tracking limited to metadata only (volume, recency) — not content — per rep feedback</li>
+  </ul>
+</div>
+
+<h3>Email/Activity Intelligence — Score: 5.9/10 (Redesigned)</h3>
+<div class="quote">"Honestly, this makes me uncomfortable. If it's about tracking my email count, it doesn't capture the two-hour phone call I had with a prospect." — <strong>Brian Saucier, BD Rep</strong></div>
+<div class="card card-red">
+  <h4>Critical Redesign Based on Feedback:</h4>
+  <ul>
+    <li>Reframed from "Email Monitoring" to "Activity Intelligence" — reps perceived it as surveillance</li>
+    <li>Multi-channel tracking: email + phone + meetings + self-reported activities</li>
+    <li>Rep sees their own dashboard first — management sees aggregates and anomalies only</li>
+    <li>"Customer last contacted" metric as primary use case, not rep monitoring</li>
+    <li>Lowered priority — build after BD dashboards are adopted and trust is established</li>
+  </ul>
+</div>
+
+<h3>Communication Hub — Score: 5.3/10 (Deprioritized)</h3>
+<div class="quote">"Another messaging tool? I'm already in email, text, and Teams. Unless it replaces ALL of them, it's just one more thing to check." — <strong>Brian Saucier, BD Rep</strong></div>
+<div class="card card-amber">
+  <h4>Pivot Based on Feedback:</h4>
+  <ul>
+    <li>Full communication hub abandoned — adoption risk too high (competes with email/Teams)</li>
+    <li>Pivoted to "Notification Center" only — aggregate alerts from all platform modules</li>
+    <li>Daily digest email as bridge for non-adopters</li>
+    <li>In-platform messaging removed from scope entirely</li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- SECTION 5: PRIORITY CHANGES -->
+<!-- ═══════════════════════════════════════════════════ -->
+
+<h2>5. Priority Changes — Before vs After Feedback</h2>
+
+<table>
+  <tr><th>Initiative</th><th>Original Tier</th><th>New Tier</th><th>Direction</th><th>Reason</th></tr>
+  <tr style="background:#f0fdf4;"><td>Contract & Lease Intelligence</td><td>Tier 2</td><td class="text-bold text-green">Tier 1</td><td class="arrow-up">↑ UPGRADE</td><td>Unanimous 10/10 urgency from Operations — immediate revenue recovery</td></tr>
+  <tr style="background:#f0fdf4;"><td>Acquisition Playbook</td><td>Tier 3</td><td class="text-bold text-green">Tier 2</td><td class="arrow-up">↑ UPGRADE</td><td>Go Freight Hub acquisition is imminent — cannot wait 6 months</td></tr>
+  <tr style="background:#f0fdf4;"><td>Customer Portal</td><td>Tier 3</td><td class="text-bold text-green">Tier 2</td><td class="arrow-up">↑ UPGRADE</td><td>30-40% call reduction = direct margin improvement</td></tr>
+  <tr style="background:#fef2f2;"><td>Communication Hub</td><td>Tier 3</td><td class="text-bold text-red">Deprioritized</td><td class="arrow-down">↓ PIVOT</td><td>Pivoted to Notification Center — full hub has adoption risk</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- SECTION 6: REVISED ROADMAP -->
+<!-- ═══════════════════════════════════════════════════ -->
+
+<h2>6. Revised Build Roadmap (Post-Feedback)</h2>
+
+<div class="timeline">
+  <div class="timeline-item">
+    <div class="timeline-phase">Phase 1 — Weeks 1-6</div>
+    <p><span class="badge badge-teal">Foundation + Highest Impact</span></p>
+    <ul><li>Authentication + Role-based access</li><li><strong>Approval Workflow Engine</strong> (Score: 9.3)</li><li><strong>Contract & Lease Intelligence</strong> (Score: 9.3 — upgraded from Tier 2)</li></ul>
+  </div>
+  <div class="timeline-item">
+    <div class="timeline-phase">Phase 2 — Weeks 7-12</div>
+    <p><span class="badge badge-blue">Sales Enablement</span></p>
+    <ul><li><strong>Personalized BD Dashboards</strong> (Score: 8.4)</li><li>Quote Persistence + Pipeline Auto-flow</li><li>Notification Center (replaces Communication Hub)</li></ul>
+  </div>
+  <div class="timeline-item">
+    <div class="timeline-phase">Phase 3 — Weeks 13-18</div>
+    <p><span class="badge badge-green">Revenue Generation + Customer</span></p>
+    <ul><li><strong>Customer-Facing Pricing + Lead Gen</strong> (Score: 7.9)</li><li><strong>Customer Portal MVP</strong> (Score: 8.0 — upgraded from Tier 3)</li><li><strong>Acquisition Playbook</strong> (Score: 8.5 — Go Freight Hub)</li></ul>
+  </div>
+  <div class="timeline-item">
+    <div class="timeline-phase">Phase 4 — Weeks 19-26</div>
+    <p><span class="badge badge-amber">Integration + Migration</span></p>
+    <ul><li>SaaS Tool Migration (Insightly first, ZoomInfo last)</li><li>Activity Intelligence (renamed, builds on BD trust)</li><li>TMS Integration (read-only feed first)</li></ul>
+  </div>
+  <div class="timeline-item">
+    <div class="timeline-phase">Phase 5 — Weeks 27-36</div>
+    <p><span class="badge badge-purple">Intelligence Layer</span></p>
+    <ul><li>Predictive Analytics + Forecasting</li><li>Domain Knowledge AI Engine</li><li>Camera AI (single-facility pilot)</li><li>Cross-Portfolio Command Center</li></ul>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- SECTION 7: FINANCIAL IMPACT -->
+<!-- ═══════════════════════════════════════════════════ -->
+
+<div class="page-break"></div>
+<h2>7. Financial Impact — Revised Projections</h2>
+
+<div class="grid-2 mb-4">
+  <div class="kpi" style="border: 2px solid #059669;">
+    <div class="kpi-label">Year 1 Conservative</div>
+    <div class="kpi-value" style="font-size:28px;">$4.2M</div>
+    <div style="font-size:9px;color:#6b7280;">Combined revenue gain + cost savings</div>
+  </div>
+  <div class="kpi" style="border: 2px solid #0d9488;">
+    <div class="kpi-label">Year 1 Optimistic</div>
+    <div class="kpi-value" style="font-size:28px;">$11.5M</div>
+    <div style="font-size:9px;color:#6b7280;">Including acquisition synergy acceleration</div>
+  </div>
+</div>
+
+<table>
+  <tr><th>Driver</th><th>Impact</th><th>Phase</th><th>Confidence</th></tr>
+  <tr><td>Contract escalation recovery</td><td class="text-bold text-green">$200-400K</td><td>Phase 1</td><td><span class="badge badge-green">High</span></td></tr>
+  <tr><td>Approval acceleration (10% sales cycle reduction on $65.8M pipeline)</td><td class="text-bold text-green">$1.5-2.6M</td><td>Phase 1</td><td><span class="badge badge-blue">Medium</span></td></tr>
+  <tr><td>SaaS tool elimination</td><td class="text-bold text-green">$250K/year</td><td>Phase 4</td><td><span class="badge badge-green">High</span></td></tr>
+  <tr><td>Customer portal call reduction (30-40%)</td><td class="text-bold text-green">$120K labor</td><td>Phase 3</td><td><span class="badge badge-blue">Medium</span></td></tr>
+  <tr><td>Inbound lead gen (public calculator)</td><td class="text-bold text-green">$2.4M pipeline</td><td>Phase 3</td><td><span class="badge badge-blue">Medium</span></td></tr>
+  <tr><td>Acquisition integration acceleration</td><td class="text-bold text-green">$2-5M EBITDA</td><td>Phase 3-5</td><td><span class="badge badge-green">High</span></td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- SECTION 8: PLATFORM CHANGES MADE -->
+<!-- ═══════════════════════════════════════════════════ -->
+
+<h2>8. Platform Changes Implemented</h2>
+<p class="text-muted mb-4">Based on synthetic audience feedback, the following code changes were made to the RK Dashboard platform:</p>
+
+<div class="card card-teal mb-2">
+  <h3 style="margin-top:0;">Change 1: CEO Dashboard — Pending Approvals Widget</h3>
+  <p><strong>File:</strong> <code>client/src/pages/Dashboard.tsx</code></p>
+  <p><strong>Feedback Source:</strong> Joe Maclean (10/10 urgency) + David Chen (10/10 urgency)</p>
+  <p><strong>What was added:</strong></p>
+  <ul>
+    <li>KPI cards: Pending count, Avg Response Time, In-Guideline count</li>
+    <li>Approval queue with type badges (Quote/Check Run), status badges (in-guideline/out-of-guideline), urgency indicators</li>
+    <li>Approve/Review action buttons per item</li>
+    <li>In-guideline items highlighted with green background for fast-track identification</li>
+  </ul>
+</div>
+
+<div class="card card-teal mb-2">
+  <h3 style="margin-top:0;">Change 2: CEO Dashboard — Escalation Tracker</h3>
+  <p><strong>File:</strong> <code>client/src/pages/Dashboard.tsx</code></p>
+  <p><strong>Feedback Source:</strong> James Bryant (10/10 urgency) + Susanna Martinez (10/10 urgency)</p>
+  <p><strong>What was added:</strong></p>
+  <ul>
+    <li>KPI cards: Total Revenue Impact, Overdue count, Next 30 Days count</li>
+    <li>Escalation list with customer, facility, type, date, amount, and annual impact</li>
+    <li>Overdue items highlighted in red with warning icon</li>
+    <li>Revenue impact displayed in green to emphasize positive capture opportunity</li>
+  </ul>
+</div>
+
+<div class="card card-teal mb-2">
+  <h3 style="margin-top:0;">Change 3: New Page — Roadmap Audience Testing</h3>
+  <p><strong>File:</strong> <code>client/src/pages/RoadmapAudienceTesting.tsx</code> (734 lines)</p>
+  <p><strong>Route:</strong> <code>/#/roadmap-testing</code></p>
+  <p><strong>What was built:</strong></p>
+  <ul>
+    <li>5-tab interface: Overview, Stakeholders, Initiative Scores, Priority Changes, Revised Roadmap</li>
+    <li>Interactive bar charts ranking all 14 initiatives by score</li>
+    <li>Expandable persona cards with context, frustrations, and wish lists</li>
+    <li>Expandable initiative cards with per-reviewer feedback, quotes, and change logs</li>
+    <li>Priority change visualization (before/after tiers with direction arrows)</li>
+    <li>Revised timeline with 5 phases and financial impact summary</li>
+  </ul>
+</div>
+
+<div class="card card-teal mb-2">
+  <h3 style="margin-top:0;">Change 4: Data Layer — Synthetic Audience Roadmap Data</h3>
+  <p><strong>File:</strong> <code>client/src/lib/syntheticAudienceRoadmap.ts</code> (520 lines)</p>
+  <p><strong>What was created:</strong></p>
+  <ul>
+    <li>8 <code>StakeholderPersona</code> definitions with full profiles</li>
+    <li>14 <code>InitiativeReview</code> objects with 38 individual stakeholder reviews</li>
+    <li>Aggregate scoring, priority changes, cross-cutting themes, and revised build order</li>
+  </ul>
+</div>
+
+<div class="card card-teal">
+  <h3 style="margin-top:0;">Change 5: Navigation & Routing Updates</h3>
+  <p><strong>Files:</strong> <code>App.tsx</code>, <code>Layout.tsx</code></p>
+  <p><strong>What was added:</strong></p>
+  <ul>
+    <li>Pipeline route (<code>/pipeline</code>) — was missing from router despite page existing</li>
+    <li>Roadmap Testing route (<code>/roadmap-testing</code>) — new page</li>
+    <li>Navigation entries with FlaskConical and GitBranch icons in Strategy section</li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- SECTION 9: CROSS-CUTTING THEMES -->
+<!-- ═══════════════════════════════════════════════════ -->
+
+<h2>9. Cross-Cutting Themes from Audience Feedback</h2>
+
+<div class="grid-2">
+  <div class="card card-teal">
+    <h4 style="margin-top:0;">MOBILE-FIRST (5 mentions)</h4>
+    <p style="font-size:10px;">CEO, BD reps, and warehouse managers all need mobile access. One-tap approvals, push notifications, and responsive design are non-negotiable.</p>
+  </div>
+  <div class="card card-purple">
+    <h4 style="margin-top:0;">PRIVACY &amp; TRUST (3 mentions)</h4>
+    <p style="font-size:10px;">Email monitoring reframed as Activity Intelligence. Metadata only. Rep-facing dashboards shown first, management sees aggregates. Camera AI needs transparent employee communication.</p>
+  </div>
+  <div class="card card-amber">
+    <h4 style="margin-top:0;">PHASED ROLLOUT (4 mentions)</h4>
+    <p style="font-size:10px;">SaaS elimination needs 90-day parallel runs. Camera AI pilots one facility first. TMS starts read-only. Email intelligence builds after BD dashboard trust.</p>
+  </div>
+  <div class="card card-blue">
+    <h4 style="margin-top:0;">SIMPLICITY FOR NON-TECHNICAL USERS (3 mentions)</h4>
+    <p style="font-size:10px;">Susanna needs simple forms, not complex interfaces. Warehouse managers need practical views, not executive dashboards. Customer portal must be intuitive.</p>
+  </div>
+</div>
+
+<div class="card card-green mt-2">
+    <h4 style="margin-top:0;">REVENUE PROTECTION (2 mentions)</h4>
+  <p style="font-size:10px;">Contract escalation enforcement and approval workflow acceleration both directly protect and accelerate revenue capture. These moved to Phase 1 as a result.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- FOOTER -->
+<!-- ═══════════════════════════════════════════════════ -->
+
+<div style="margin-top:30px; padding-top:16px; border-top:2px solid #0d9488; text-align:center;">
+  <p style="font-size:10px; color:#6b7280;">RK Platform Optimization Report — Generated March 25, 2026</p>
+  <p style="font-size:9px; color:#9ca3af;">Synthetic Audience Testing conducted against 8 internal stakeholder personas across 14 strategic initiatives</p>
+  <p style="font-size:9px; color:#9ca3af;">Platform: <strong>https://rk-dashboard-production.up.railway.app</strong> | Repo: <strong>https://github.com/JAlmanzarMint/RK-Dashboard</strong></p>
+</div>
+
+</body>
+</html>

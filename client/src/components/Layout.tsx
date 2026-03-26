@@ -4,7 +4,8 @@ import {
   LayoutDashboard, Target, Briefcase, Users, Building2, Truck,
   DollarSign, Wallet, Globe, Cpu, Megaphone,
   Sun, Moon, ChevronDown, ChevronRight, Menu, X, Package,
-  Compass, UserSearch, Shield, Calculator, Mail, Eye, ClipboardList, Route, Brain
+  Compass, UserSearch, Shield, Calculator, Mail, Eye, ClipboardList, Route, Brain,
+  GitBranch, FlaskConical
 } from "lucide-react";
 import { PerplexityAttribution } from "./PerplexityAttribution";
 
@@ -57,6 +58,8 @@ const sections = [
       { path: "/marketing", label: "Marketing", icon: Megaphone },
       { path: "/strategy", label: "Strategy Hub", icon: Compass },
       { path: "/strategy-simulation", label: "Strategy Simulation", icon: Brain },
+      { path: "/pipeline", label: "Pipeline", icon: GitBranch },
+      { path: "/roadmap-testing", label: "Roadmap Testing", icon: FlaskConical },
     ],
   },
 ];

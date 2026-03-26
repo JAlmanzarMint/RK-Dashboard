@@ -22,6 +22,10 @@ import {
   Newspaper,
   ArrowUpRight,
   MapPin,
+  Shield,
+  Calendar,
+  CheckCircle2,
+  Clock,
 } from "lucide-react";
 import {
   BarChart,
@@ -770,6 +774,212 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Pending Approvals */}
+      {(() => {
+        const pendingApprovals = [
+          { id: "QT-2026-0147", type: "Quote", customer: "Tesla Energy", amount: "$2.4M", facility: "Goodyear, AZ", status: "out-of-guideline", submittedBy: "Peter O'Donnell", age: "2 hours", urgency: "high" },
+          { id: "CR-0312", type: "Check Run", vendor: "Prologis", amount: "$187,500", description: "Q1 Lease - Patterson", status: "pending", submittedBy: "David Chen", age: "1 day", urgency: "high" },
+          { id: "QT-2026-0148", type: "Quote", customer: "Rivian", amount: "$890K", facility: "Vista Ridge, TX", status: "in-guideline", submittedBy: "Brian Saucier", age: "4 hours", urgency: "medium" },
+          { id: "CR-0313", type: "Check Run", vendor: "Staffmark", amount: "$42,800", description: "Temp Labor - Fremont", status: "pending", submittedBy: "David Chen", age: "3 days", urgency: "critical" },
+          { id: "QT-2026-0149", type: "Quote", customer: "Applied Materials", amount: "$1.8M", facility: "Fremont, CA", status: "in-guideline", submittedBy: "Peter O'Donnell", age: "6 hours", urgency: "low" },
+        ];
+
+        const pendingCount = pendingApprovals.length;
+        const inGuidelineCount = pendingApprovals.filter((a) => a.status === "in-guideline").length;
+
+        const urgencyDot: Record<string, string> = {
+          critical: "bg-red-500",
+          high: "bg-amber-500",
+          medium: "bg-blue-500",
+          low: "bg-gray-400",
+        };
+
+        const statusBadge: Record<string, string> = {
+          "in-guideline": "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+          "out-of-guideline": "bg-red-500/10 text-red-600 dark:text-red-400",
+          pending: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+        };
+
+        return (
+          <Card className="border border-border">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-primary" />
+                  <CardTitle className="text-sm font-semibold">Pending Approvals</CardTitle>
+                </div>
+                <Badge variant="outline" className="text-[10px] border-0 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                  {pendingCount} awaiting action
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <div className="p-3 rounded-lg bg-muted/30 border border-border/50 text-center">
+                  <p className="text-lg font-bold tabular-nums">{pendingCount}</p>
+                  <p className="text-[10px] text-muted-foreground font-medium">Pending</p>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/30 border border-border/50 text-center">
+                  <p className="text-lg font-bold tabular-nums">14 hrs</p>
+                  <p className="text-[10px] text-muted-foreground font-medium">Avg Response Time</p>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/30 border border-border/50 text-center">
+                  <p className="text-lg font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{inGuidelineCount}</p>
+                  <p className="text-[10px] text-muted-foreground font-medium">In-Guideline</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {pendingApprovals.map((item) => (
+                  <div
+                    key={item.id}
+                    className={`flex items-center gap-3 p-2.5 rounded-lg border border-border/50 ${
+                      item.status === "in-guideline"
+                        ? "bg-emerald-500/5"
+                        : "bg-muted/30"
+                    }`}
+                  >
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${urgencyDot[item.urgency]}`} />
+                    <Badge
+                      variant="outline"
+                      className={`text-[9px] border-0 shrink-0 ${
+                        item.type === "Quote"
+                          ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                          : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                      }`}
+                    >
+                      {item.type}
+                    </Badge>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-semibold truncate">
+                          {item.id}
+                        </p>
+                        <span className="text-[10px] text-muted-foreground truncate">
+                          {item.customer || item.vendor}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground truncate">
+                        {item.facility || item.description} · {item.submittedBy}
+                      </p>
+                    </div>
+                    <p className="text-xs font-semibold tabular-nums shrink-0">{item.amount}</p>
+                    <Badge
+                      variant="outline"
+                      className={`text-[9px] border-0 shrink-0 ${statusBadge[item.status]}`}
+                    >
+                      {item.status}
+                    </Badge>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Clock className="w-3 h-3 text-muted-foreground" />
+                      <span className="text-[10px] text-muted-foreground">{item.age}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button className="px-2 py-0.5 rounded text-[9px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25 transition-colors">
+                        Approve
+                      </button>
+                      <button className="px-2 py-0.5 rounded text-[9px] font-semibold bg-muted text-muted-foreground hover:bg-accent transition-colors">
+                        Review
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
+
+      {/* Upcoming Escalations */}
+      {(() => {
+        const upcomingEscalations = [
+          { customer: "Netflix", facility: "Patterson, CA", type: "Rate Escalation", date: "Mar 1, 2026", amount: "+$0.15/sqft", annualImpact: "$54,000", status: "overdue" },
+          { customer: "Tesla Energy", facility: "Goodyear, AZ", type: "CPI Adjustment", date: "Apr 1, 2026", amount: "+3.2%", annualImpact: "$128,000", status: "upcoming" },
+          { customer: "Corning", facility: "Vista Ridge, TX", type: "Rate Escalation", date: "Apr 15, 2026", amount: "+$0.12/sqft", annualImpact: "$38,400", status: "upcoming" },
+          { customer: "LAM Research", facility: "Fremont, CA", type: "Annual Increase", date: "May 1, 2026", amount: "+$0.20/sqft", annualImpact: "$162,000", status: "upcoming" },
+        ];
+
+        const totalImpact = upcomingEscalations.reduce((sum, e) => {
+          return sum + parseInt(e.annualImpact.replace(/[$,]/g, ""), 10);
+        }, 0);
+        const overdueCount = upcomingEscalations.filter((e) => e.status === "overdue").length;
+        const next30Count = upcomingEscalations.filter((e) => {
+          const d = new Date(e.date);
+          const now = new Date("2026-03-26");
+          const diff = (d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+          return diff <= 30 && diff >= 0;
+        }).length;
+
+        return (
+          <Card className="border border-border">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-primary" />
+                  <CardTitle className="text-sm font-semibold">Upcoming Escalations</CardTitle>
+                </div>
+                <Badge variant="outline" className="text-[10px] border-0 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                  Next 60 Days
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 pt-0">
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <div className="p-3 rounded-lg bg-muted/30 border border-border/50 text-center">
+                  <p className="text-lg font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                    ${(totalImpact / 1000).toFixed(1)}K
+                  </p>
+                  <p className="text-[10px] text-muted-foreground font-medium">Total Revenue Impact</p>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/30 border border-border/50 text-center">
+                  <p className="text-lg font-bold tabular-nums text-red-600 dark:text-red-400">{overdueCount}</p>
+                  <p className="text-[10px] text-muted-foreground font-medium">Overdue</p>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/30 border border-border/50 text-center">
+                  <p className="text-lg font-bold tabular-nums">{next30Count}</p>
+                  <p className="text-[10px] text-muted-foreground font-medium">Next 30 Days</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {upcomingEscalations.map((esc) => (
+                  <div
+                    key={esc.customer + esc.date}
+                    className={`flex items-center gap-3 p-2.5 rounded-lg border border-border/50 ${
+                      esc.status === "overdue"
+                        ? "bg-red-500/5"
+                        : "bg-muted/30"
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-semibold">{esc.customer}</p>
+                        <span className="text-[10px] text-muted-foreground">{esc.facility}</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        {esc.type} · {esc.date}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-xs font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">{esc.amount}</p>
+                      <p className="text-[10px] text-muted-foreground tabular-nums">{esc.annualImpact}/yr</p>
+                    </div>
+                    {esc.status === "overdue" ? (
+                      <Badge variant="outline" className="text-[9px] border-0 bg-red-500/10 text-red-600 dark:text-red-400 shrink-0">
+                        <AlertTriangle className="w-3 h-3 mr-1" />
+                        Overdue
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[9px] border-0 bg-amber-500/10 text-amber-600 dark:text-amber-400 shrink-0">
+                        Upcoming
+                      </Badge>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Revenue Split */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
