@@ -4,6 +4,11 @@ import { storage } from "./storage";
 import multer from "multer";
 import OpenAI, { toFile } from "openai";
 import { randomUUID } from "crypto";
+import { File as NodeFile } from "node:buffer";
+
+if (typeof globalThis.File === "undefined") {
+  (globalThis as any).File = NodeFile;
+}
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 
