@@ -5,7 +5,7 @@ import {
   DollarSign, Wallet, Globe, Cpu, Megaphone,
   Sun, Moon, ChevronDown, ChevronRight, Menu, X, Package,
   Compass, UserSearch, Shield, Calculator, Mail, Eye, ClipboardList, Route, Brain,
-  GitBranch, FlaskConical, Mic, Inbox
+  GitBranch, FlaskConical, Lightbulb
 } from "lucide-react";
 import { PerplexityAttribution } from "./PerplexityAttribution";
 
@@ -60,8 +60,7 @@ const sections = [
       { path: "/strategy-simulation", label: "Strategy Simulation", icon: Brain },
       { path: "/pipeline", label: "Pipeline", icon: GitBranch },
       { path: "/roadmap-testing", label: "Roadmap Testing", icon: FlaskConical },
-      { path: "/voice-capture", label: "Voice to Idea", icon: Mic },
-      { path: "/dev-bucket", label: "Dev Bucket", icon: Inbox },
+      { path: "/ideas", label: "Idea Pipeline", icon: Lightbulb },
     ],
   },
 ];

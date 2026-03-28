@@ -18,23 +18,59 @@ function getOpenAI() {
   return new OpenAI({ apiKey: key });
 }
 
-// ── In-memory idea store ──────────────────────────────
+// ── Idea types ────────────────────────────────────────
+export type IdeaStatus =
+  | "review"
+  | "approved"
+  | "dev"
+  | "needs_feedback"
+  | "completed"
+  | "rejected";
+
+export interface RefinedIdea {
+  title: string;
+  summary: string;
+  problem: string;
+  solution: string;
+  impact: string;
+  priority: "HIGH" | "MEDIUM" | "LOW";
+  department: string;
+  requirements: string[];
+}
+
 export interface Idea {
   id: string;
   rawTranscript: string;
-  optimizedTitle: string;
-  optimizedDescription: string;
-  category: string;
-  impactEstimate: string;
-  aiSuggestions: string[];
+  refined: RefinedIdea | null;
+  cursorPrompt: string | null;
+  status: IdeaStatus;
+  submittedBy: string;
+  submittedByEmail: string;
+  feedbackNote: string | null;
   ceoNotes: string;
-  status: "draft" | "approved" | "in-progress" | "completed" | "rejected";
   devNotes: string;
   createdAt: string;
   updatedAt: string;
 }
 
 const ideas: Map<string, Idea> = new Map();
+
+const RK_SYSTEM_PROMPT = `You are a senior product manager and business strategist for RK Logistics, a premier 3PL warehousing and logistics company.
+
+RK Logistics operates 12+ facilities across California, Arizona, Texas, New Jersey, and Minnesota, totaling 1.78M sqft. The company serves semiconductor, EV/battery, solar, electronics, and aerospace customers including LAM Research, Tesla, Applied Materials, Corning, and Netflix.
+
+Key business units:
+- RK Logistics: Contract warehousing, FTZ operations, distribution, value-added services
+- On Time Trucking (OTT): LTL and FTL carrier serving the NY/NJ/CT tristate corridor
+- Go Freight Hub: Recently acquired freight forwarding company in Miami
+
+Departments: Sales & BD, Operations, Finance & Accounting, Customer Service, Warehouse Operations, HR & Recruiting, Marketing, Technology, Strategy, Compliance
+
+Technology stack: React + Express dashboard, Insightly CRM (being replaced), ZoomInfo (being replaced), QuickBooks, TMS for OTT, warehouse cameras at multiple facilities
+
+Integrations to consider: Insightly CRM data, ZoomInfo contacts, TMS feed, Gmail/Outlook, QuickBooks AR/AP, warehouse camera feeds, commercial lease documents
+
+Leadership: Joe Maclean (CEO), James Bryant (VP Operations), Peter O'Donnell (VP Sales/BD), David Chen (Controller)`;
 
 export async function registerRoutes(
   httpServer: Server,
@@ -57,18 +93,18 @@ export async function registerRoutes(
         file: audioFile,
         model: "whisper-1",
         response_format: "text",
-        prompt: "The speaker is Joe Maclean, CEO of RK Logistics. He is dictating business ideas about warehouse operations, logistics technology, acquisitions, pricing, dashboard features, OTT trucking, facilities, and team management. Key terms: RK Logistics, On Time Trucking, OTT, FTZ, EBITDA, Insightly, ZoomInfo, pipeline, BD, go freight hub.",
+        prompt: "The speaker is a team member at RK Logistics dictating a business idea or feature request. Key terms: RK Logistics, On Time Trucking, OTT, FTZ, EBITDA, Insightly, ZoomInfo, pipeline, BD, Go Freight Hub, warehouse, facility, Patterson, Fremont, Goodyear, Vista Ridge, Kato. Departments: Sales, Marketing, Operations, Compliance, Engineering, Strategy, Warehouse, QC, Accounting, Procurement, Customer Service.",
       });
 
-      res.json({ text: transcription });
+      res.json({ transcript: transcription });
     } catch (err: any) {
       console.error("Transcription error:", err);
       res.status(500).json({ message: err.message || "Transcription failed" });
     }
   });
 
-  // ── POST /api/optimize-idea ───────────────────────
-  app.post("/api/optimize-idea", async (req: Request, res: Response) => {
+  // ── POST /api/ideas/generate ──────────────────────
+  app.post("/api/ideas/generate", async (req: Request, res: Response) => {
     try {
       const { transcript } = req.body;
       if (!transcript) return res.status(400).json({ message: "No transcript provided" });
@@ -76,68 +112,155 @@ export async function registerRoutes(
       const openai = getOpenAI();
       const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
-        temperature: 0.4,
+        temperature: 0.7,
         messages: [
           {
             role: "system",
-            content: `You are an expert business strategist and product manager for RK Logistics, a 3PL warehousing and logistics company. The CEO, Joe Maclean, has spoken an idea into his microphone. Your job is to:
+            content: `${RK_SYSTEM_PROMPT}
 
-1. Clean up and structure the raw transcript into a clear idea
-2. Generate a concise title (max 10 words)
-3. Write a clear, structured description of the idea (2-4 paragraphs)
-4. Categorize it (one of: Platform Feature, Revenue Optimization, Cost Reduction, Operations, Acquisition Strategy, Sales & BD, Customer Experience, Technology, HR & Culture, Marketing)
-5. Estimate potential business impact (e.g., "$50K-100K annual savings" or "15% efficiency improvement" or "New revenue channel")
-6. Suggest 3-5 specific actionable next steps to implement the idea
+Your job is to take a raw voice transcript of an idea and turn it into a clear, structured, actionable feature or improvement proposal.
 
-Respond in this exact JSON format:
+Format your response as JSON with these exact fields:
 {
-  "title": "...",
-  "description": "...",
-  "category": "...",
-  "impactEstimate": "...",
-  "suggestions": ["step 1", "step 2", "step 3"]
-}`
+  "title": "A concise title (5-10 words)",
+  "summary": "A 2-3 sentence executive summary",
+  "problem": "What problem this solves or opportunity it captures",
+  "solution": "Detailed description of the proposed feature/change (2-3 paragraphs)",
+  "impact": "Expected business impact (revenue, efficiency, customer experience)",
+  "priority": "HIGH" or "MEDIUM" or "LOW",
+  "department": "Which department this primarily affects",
+  "requirements": ["requirement 1", "requirement 2", "requirement 3", "requirement 4"]
+}
+
+Return ONLY valid JSON. No markdown, no code blocks, just the JSON object.`
           },
-          { role: "user", content: transcript }
+          {
+            role: "user",
+            content: `Transform this voice transcript into a structured idea:\n\n"${transcript}"`
+          }
         ],
       });
 
-      const content = completion.choices[0]?.message?.content || "";
-      let parsed;
+      const content = completion.choices[0]?.message?.content || "{}";
+      let refined;
       try {
         const jsonMatch = content.match(/\{[\s\S]*\}/);
-        parsed = JSON.parse(jsonMatch ? jsonMatch[0] : content);
+        refined = JSON.parse(jsonMatch ? jsonMatch[0] : content);
       } catch {
-        parsed = {
+        refined = {
           title: "New Idea",
-          description: content,
-          category: "Platform Feature",
-          impactEstimate: "TBD",
-          suggestions: ["Review and refine this idea"],
+          summary: content.slice(0, 200),
+          problem: "See summary",
+          solution: content,
+          impact: "TBD",
+          priority: "MEDIUM",
+          department: "General",
+          requirements: ["Review and refine this idea"],
         };
       }
 
-      res.json(parsed);
+      res.json({ refined });
     } catch (err: any) {
-      console.error("Optimize error:", err);
-      res.status(500).json({ message: err.message || "Optimization failed" });
+      console.error("Generate error:", err);
+      res.status(500).json({ message: err.message || "Idea generation failed" });
+    }
+  });
+
+  // ── POST /api/ideas/cursor-prompt ─────────────────
+  app.post("/api/ideas/cursor-prompt", async (req: Request, res: Response) => {
+    try {
+      const { idea } = req.body;
+      if (!idea) return res.status(400).json({ message: "No idea provided" });
+
+      const openai = getOpenAI();
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        temperature: 0.4,
+        max_tokens: 4000,
+        messages: [
+          {
+            role: "system",
+            content: `You are an expert Cursor AI prompt engineer. Your job is to take an approved feature idea and generate a comprehensive, production-ready Cursor prompt that a developer can paste into Cursor to implement the feature.
+
+The platform context:
+- Framework: React 18 + Vite + Express 5 (single-port fullstack)
+- Language: TypeScript
+- Styling: Tailwind CSS 3 + shadcn/ui components
+- Charts: Recharts
+- Maps: Leaflet / react-leaflet
+- Icons: lucide-react
+- Routing: wouter with hash-based routing (useHashLocation)
+- State: React useState/useEffect (no Redux)
+- Data: TypeScript files under client/src/lib/ (transitioning to API-backed)
+- API: Express routes in server/routes.ts, same-origin
+- Build: Vite frontend to dist/public/, esbuild server to dist/index.cjs
+- Deploy: Railway (Nixpacks)
+
+Key directories:
+- client/src/pages/*.tsx — page components
+- client/src/components/ui/ — shadcn/ui components (Card, Badge, Table, etc.)
+- client/src/components/Layout.tsx — sidebar navigation
+- client/src/lib/*.ts — data files and utilities
+- server/routes.ts — Express API routes
+- server/storage.ts — storage interface
+
+Design system:
+- Primary color: teal (--primary: 174 72% 33%)
+- Font: Satoshi
+- Text sizes: text-xs (10px body), text-sm (labels), text-[10px] (micro)
+- Cards: Card/CardContent/CardHeader/CardTitle from shadcn/ui
+- Badges: Badge with variant="outline" and bg-color/10 patterns
+- Dark mode: .dark class on html element
+
+Rules:
+- NEVER break existing functionality
+- NEVER use localStorage or sessionStorage
+- NEVER upgrade Tailwind to v4
+- Maintain dark mode compatibility
+- Use existing shadcn/ui components
+- Export pages as default functions
+- All data imports from @/lib/ or fetched from /api/
+
+Generate the prompt as a complete markdown document ready to paste into Cursor. Be specific about file paths, imports, and component structure.`
+          },
+          {
+            role: "user",
+            content: `Generate a Cursor implementation prompt for this approved idea:
+
+Title: ${idea.title}
+Summary: ${idea.summary}
+Problem: ${idea.problem}
+Solution: ${idea.solution}
+Department: ${idea.department}
+Priority: ${idea.priority}
+Requirements:
+${(idea.requirements || []).map((r: string, i: number) => `${i + 1}. ${r}`).join("\n")}`
+          }
+        ],
+      });
+
+      const cursorPrompt = completion.choices[0]?.message?.content || "";
+      res.json({ cursorPrompt });
+    } catch (err: any) {
+      console.error("Cursor prompt error:", err);
+      res.status(500).json({ message: err.message || "Cursor prompt generation failed" });
     }
   });
 
   // ── POST /api/ideas ─────────────────────────────────
   app.post("/api/ideas", (req: Request, res: Response) => {
-    const { rawTranscript, optimizedTitle, optimizedDescription, category, impactEstimate, aiSuggestions, ceoNotes } = req.body;
+    const { rawTranscript, refined, ceoNotes, submittedBy, submittedByEmail, status } = req.body;
 
     const idea: Idea = {
       id: randomUUID(),
       rawTranscript: rawTranscript || "",
-      optimizedTitle: optimizedTitle || "Untitled Idea",
-      optimizedDescription: optimizedDescription || "",
-      category: category || "Platform Feature",
-      impactEstimate: impactEstimate || "TBD",
-      aiSuggestions: aiSuggestions || [],
+      refined: refined || null,
+      cursorPrompt: null,
+      status: status || "review",
+      submittedBy: submittedBy || "Unknown",
+      submittedByEmail: submittedByEmail || "",
+      feedbackNote: null,
       ceoNotes: ceoNotes || "",
-      status: "draft",
       devNotes: "",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -167,12 +290,13 @@ Respond in this exact JSON format:
     const idea = ideas.get(req.params.id);
     if (!idea) return res.status(404).json({ message: "Idea not found" });
 
-    const { status, ceoNotes, devNotes, optimizedTitle, optimizedDescription } = req.body;
+    const { status, ceoNotes, devNotes, feedbackNote, cursorPrompt, refined } = req.body;
     if (status !== undefined) idea.status = status;
     if (ceoNotes !== undefined) idea.ceoNotes = ceoNotes;
     if (devNotes !== undefined) idea.devNotes = devNotes;
-    if (optimizedTitle !== undefined) idea.optimizedTitle = optimizedTitle;
-    if (optimizedDescription !== undefined) idea.optimizedDescription = optimizedDescription;
+    if (feedbackNote !== undefined) idea.feedbackNote = feedbackNote;
+    if (cursorPrompt !== undefined) idea.cursorPrompt = cursorPrompt;
+    if (refined !== undefined) idea.refined = refined;
     idea.updatedAt = new Date().toISOString();
 
     ideas.set(idea.id, idea);

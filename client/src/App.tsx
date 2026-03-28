@@ -29,8 +29,7 @@ import RoutingOptimization from "@/pages/RoutingOptimization";
 import StrategySimulation from "@/pages/StrategySimulation";
 import Pipeline from "@/pages/Pipeline";
 import RoadmapAudienceTesting from "@/pages/RoadmapAudienceTesting";
-import VoiceCapture from "@/pages/VoiceCapture";
-import DevBucket from "@/pages/DevBucket";
+import IdeasDashboard from "@/pages/IdeasDashboard";
 
 function AppRouter() {
   return (
@@ -59,8 +58,7 @@ function AppRouter() {
         <Route path="/strategy-simulation" component={StrategySimulation} />
         <Route path="/pipeline" component={Pipeline} />
         <Route path="/roadmap-testing" component={RoadmapAudienceTesting} />
-        <Route path="/voice-capture" component={VoiceCapture} />
-        <Route path="/dev-bucket" component={DevBucket} />
+        <Route path="/ideas" component={IdeasDashboard} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
