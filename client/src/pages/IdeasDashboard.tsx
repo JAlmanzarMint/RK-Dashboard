@@ -22,6 +22,8 @@ interface RefinedIdea {
   impact: string;
   priority: "HIGH" | "MEDIUM" | "LOW";
   department: string;
+  sectionAffected: string;
+  featureWorkflow: string;
   requirements: string[];
 }
 
@@ -343,7 +345,7 @@ export default function IdeasDashboard() {
             <div className="text-center">
               {stage === "idle" && (
                 <p className="text-sm text-muted-foreground">
-                  Tap to record your idea. Mention the <strong>department</strong>, <strong>feature</strong>, and <strong>data source</strong>.
+                  Tap to record your idea. Mention the <strong>department</strong>, <strong>section affected</strong>, <strong>exact feature</strong>, and <strong>data source</strong>.
                 </p>
               )}
               {stage === "recording" && (
@@ -483,7 +485,7 @@ export default function IdeasDashboard() {
                     </div>
                     <ChevronRight className={`w-4 h-4 shrink-0 mt-0.5 transition-transform ${isSelected ? "rotate-90 text-primary" : "text-muted-foreground"}`} />
                   </div>
-                  <div className="flex items-center gap-2 mt-2">
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
                     <Badge variant="outline" className={`text-[10px] ${sc.color}`}>{sc.label}</Badge>
                     {idea.refined?.priority && (
                       <Badge variant="outline" className={`text-[10px] ${PRIORITY_COLORS[idea.refined.priority] || ""}`}>
@@ -494,7 +496,21 @@ export default function IdeasDashboard() {
                       <span className="text-[10px] text-muted-foreground">{idea.refined.department}</span>
                     )}
                   </div>
-                  <div className="flex items-center justify-between mt-2">
+                  {(idea.refined?.sectionAffected || idea.refined?.featureWorkflow) && (
+                    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                      {idea.refined.sectionAffected && (
+                        <span className="text-[10px] font-medium text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded">
+                          {idea.refined.sectionAffected}
+                        </span>
+                      )}
+                      {idea.refined.featureWorkflow && (
+                        <span className="text-[10px] text-muted-foreground truncate max-w-[160px]" title={idea.refined.featureWorkflow}>
+                          {idea.refined.featureWorkflow}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between mt-1.5">
                     <span className="text-[10px] text-muted-foreground">{idea.submittedBy}</span>
                     {needsAction && (
                       <span className="text-[10px] font-medium text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded">
@@ -537,6 +553,26 @@ export default function IdeasDashboard() {
                         <Badge variant="outline">{selected.refined.department}</Badge>
                       )}
                     </div>
+                    {(selected.refined?.sectionAffected || selected.refined?.featureWorkflow) && (
+                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        {selected.refined?.sectionAffected && (
+                          <div className="flex items-center gap-1 text-xs">
+                            <span className="text-muted-foreground">Section:</span>
+                            <span className="font-medium text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded">
+                              {selected.refined.sectionAffected}
+                            </span>
+                          </div>
+                        )}
+                        {selected.refined?.featureWorkflow && (
+                          <div className="flex items-center gap-1 text-xs">
+                            <span className="text-muted-foreground">Feature:</span>
+                            <span className="font-medium text-violet-600 dark:text-violet-400 bg-violet-500/10 px-2 py-0.5 rounded">
+                              {selected.refined.featureWorkflow}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <span className="text-xs text-muted-foreground shrink-0">
                     by {selected.submittedBy} · {new Date(selected.createdAt).toLocaleDateString()}
@@ -573,6 +609,19 @@ export default function IdeasDashboard() {
                       <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Summary</h4>
                       <p className="text-sm">{selected.refined.summary}</p>
                     </div>
+
+                    {(selected.refined.sectionAffected || selected.refined.featureWorkflow) && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-3 rounded-lg bg-muted/30 border border-border">
+                        <div>
+                          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Section Affected</h4>
+                          <p className="text-sm font-medium">{selected.refined.sectionAffected || "—"}</p>
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Feature / Workflow</h4>
+                          <p className="text-sm font-medium">{selected.refined.featureWorkflow || "—"}</p>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>

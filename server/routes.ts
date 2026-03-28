@@ -35,6 +35,8 @@ export interface RefinedIdea {
   impact: string;
   priority: "HIGH" | "MEDIUM" | "LOW";
   department: string;
+  sectionAffected: string;
+  featureWorkflow: string;
   requirements: string[];
 }
 
@@ -129,6 +131,8 @@ Format your response as JSON with these exact fields:
   "impact": "Expected business impact (revenue, efficiency, customer experience)",
   "priority": "HIGH" or "MEDIUM" or "LOW",
   "department": "Which department this primarily affects",
+  "sectionAffected": "Which section of the CEO Dashboard platform this idea would live in or modify. Choose from: Dashboard, Goals, Business Development, Customers, Facilities, Facility Pricing, Bench Strength, OTT Carriers, OTT Pricing, Route Optimizer, Utilization AI, Facility Profile, Financials, Liquidity, Email Pulse, Recruiting, Market Intel, Technology, Marketing, Strategy Hub, Strategy Simulation, Pipeline, Idea Pipeline, or 'New Section' if it needs its own page.",
+  "featureWorkflow": "The exact feature, widget, or workflow being requested — be specific. Examples: 'AR Aging Dashboard Widget', 'Deal Pipeline Funnel Chart', 'License Expiration Alert System', 'Pick-Pack Real-Time Status Board', 'Email Campaign Builder with Segmentation'. Keep it to 3-12 words describing the concrete deliverable.",
   "requirements": ["requirement 1", "requirement 2", "requirement 3", "requirement 4"]
 }
 
@@ -155,6 +159,8 @@ Return ONLY valid JSON. No markdown, no code blocks, just the JSON object.`
           impact: "TBD",
           priority: "MEDIUM",
           department: "General",
+          sectionAffected: "Dashboard",
+          featureWorkflow: "Review and define specific feature",
           requirements: ["Review and refine this idea"],
         };
       }
@@ -232,6 +238,8 @@ Summary: ${idea.summary}
 Problem: ${idea.problem}
 Solution: ${idea.solution}
 Department: ${idea.department}
+Section Affected: ${idea.sectionAffected || "TBD"}
+Feature/Workflow: ${idea.featureWorkflow || "TBD"}
 Priority: ${idea.priority}
 Requirements:
 ${(idea.requirements || []).map((r: string, i: number) => `${i + 1}. ${r}`).join("\n")}`
