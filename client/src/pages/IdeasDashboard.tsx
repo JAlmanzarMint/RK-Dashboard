@@ -3,7 +3,7 @@ import {
   Mic, MicOff, Square, Loader2, Sparkles, Copy, Check, Send,
   AlertTriangle, ChevronRight, Lightbulb, Code2, MessageSquare,
   ArrowRight, Clock, CheckCircle2, XCircle, RotateCcw,
-  LayoutList, Inbox, User, Shield
+  LayoutList, Inbox, User, Shield, Trash2
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -98,6 +98,7 @@ export default function IdeasDashboard() {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
   const [copied, setCopied] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -108,6 +109,8 @@ export default function IdeasDashboard() {
   const userName = isDev ? "Developer" : USER_NAME;
 
   const selected = ideas.find((i) => i.id === selectedId) || null;
+
+  useEffect(() => { setConfirmingDelete(false); setFeedbackOpen(false); setFeedbackText(""); }, [selectedId]);
 
   // ── Fetch ideas on mount + polling ────────────────
   const fetchIdeas = useCallback(async () => {
@@ -249,6 +252,18 @@ export default function IdeasDashboard() {
   };
 
   const resubmit = (id: string) => updateIdea(id, { status: "review", feedbackNote: null });
+
+  const deleteIdea = async (id: string) => {
+    try {
+      const res = await fetch(`/api/ideas/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Delete failed");
+      setIdeas((prev) => prev.filter((i) => i.id !== id));
+      if (selectedId === id) setSelectedId(null);
+      setConfirmingDelete(false);
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
 
   const generateCursorPrompt = async (idea: IdeaEntry) => {
     if (!idea.refined) return;
@@ -790,6 +805,36 @@ export default function IdeasDashboard() {
                       )}
                     </>
                   )}
+
+                  {/* Delete — available to both roles */}
+                  <div className="ml-auto">
+                    {!confirmingDelete ? (
+                      <button
+                        onClick={() => setConfirmingDelete(true)}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium text-red-500 hover:bg-red-500/10 transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Delete
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-red-500 font-medium">Delete this idea?</span>
+                        <button
+                          onClick={() => deleteIdea(selected.id)}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium bg-red-600 text-white hover:bg-red-700 transition-colors"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          Confirm
+                        </button>
+                        <button
+                          onClick={() => setConfirmingDelete(false)}
+                          className="px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
