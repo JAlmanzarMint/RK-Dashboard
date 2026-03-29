@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Package, Eye, EyeOff, Loader2, AlertTriangle, CheckCircle2, Lock, Mail, User as UserIcon
+  Eye, EyeOff, Loader2, AlertTriangle, CheckCircle2, Lock, Mail, User as UserIcon
 } from "lucide-react";
 
 type Mode = "login" | "register" | "forgot";
@@ -61,15 +61,12 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#014846] to-[#012a29] p-4">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mb-4 shadow-lg">
-            <Package className="w-7 h-7 text-primary-foreground" />
-          </div>
-          <h1 className="text-xl font-bold tracking-tight">RK Logistics</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">CEO Dashboard</p>
+          <img src="/rk-logo-black.png" alt="RK Logistics" className="h-10 brightness-0 invert mb-3" />
+          <p className="text-sm text-white/60 tracking-wide">CEO Dashboard</p>
         </div>
 
         <Card>
@@ -273,8 +270,8 @@ export default function Login() {
           </CardContent>
         </Card>
 
-        <p className="text-center text-[10px] text-muted-foreground mt-6">
-          RK Logistics Group &middot; Fremont, CA
+        <p className="text-center text-[10px] text-white/40 mt-6">
+          RK Logistics Group &middot; Logistics for Innovation &middot; Fremont, CA
         </p>
       </div>
     </div>

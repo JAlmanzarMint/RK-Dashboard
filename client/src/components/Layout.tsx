@@ -111,13 +111,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
         >
           {/* Logo */}
           <div className="flex items-center gap-3 px-4 h-14 border-b border-sidebar-border shrink-0">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
-              <Package className="w-4 h-4 text-primary-foreground" />
-            </div>
-            {sidebarOpen && (
-              <div className="min-w-0">
-                <div className="text-sm font-bold tracking-tight truncate">RK Logistics</div>
-                <div className="text-[10px] text-muted-foreground font-medium tracking-wide uppercase">CEO Dashboard</div>
+            {sidebarOpen ? (
+              <div className="min-w-0 flex items-center gap-2">
+                <img src="/rk-logo-black.png" alt="RK Logistics" className="h-7 brightness-0 invert" />
+              </div>
+            ) : (
+              <div className="w-8 h-8 rounded-lg bg-[#71A446] flex items-center justify-center shrink-0 mx-auto">
+                <span className="text-white text-xs font-extrabold">RK</span>
               </div>
             )}
           </div>
@@ -170,9 +170,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
           {/* Sidebar footer */}
           {sidebarOpen && (
-            <div className="px-4 py-3 border-t border-sidebar-border text-[10px] text-muted-foreground">
-              <div className="font-medium">Data as of Mar 16, 2026</div>
-              <div>Fremont, CA HQ</div>
+            <div className="px-4 py-3 border-t border-sidebar-border text-[10px] text-sidebar-foreground/50">
+              <div className="font-medium">Logistics for Innovation</div>
+              <div>Fremont, CA</div>
             </div>
           )}
         </aside>
