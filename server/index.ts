@@ -23,6 +23,8 @@ declare module "http" {
 // ── HTTPS redirect (production behind Railway/proxy) ────
 if (isProd) {
   app.use((req, res, next) => {
+    // Skip redirect for internal health checks (no x-forwarded-proto = direct connection)
+    if (!req.headers["x-forwarded-proto"]) return next();
     if (req.headers["x-forwarded-proto"] !== "https") {
       return res.redirect(301, `https://${req.headers.host}${req.url}`);
     }
