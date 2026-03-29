@@ -4,7 +4,7 @@ import {
   Mic, MicOff, Square, Loader2, Sparkles, Copy, Check, Send,
   AlertTriangle, ChevronRight, Lightbulb, Code2, MessageSquare,
   ArrowRight, Clock, CheckCircle2, XCircle, RotateCcw,
-  LayoutList, Inbox, User, Shield, Trash2
+  LayoutList, Inbox, User, Shield, Trash2, Pencil, Save
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -96,6 +96,9 @@ export default function IdeasDashboard() {
   const [feedbackText, setFeedbackText] = useState("");
   const [copied, setCopied] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editDraft, setEditDraft] = useState<RefinedIdea | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -107,7 +110,7 @@ export default function IdeasDashboard() {
 
   const selected = ideas.find((i) => i.id === selectedId) || null;
 
-  useEffect(() => { setConfirmingDelete(false); setFeedbackOpen(false); setFeedbackText(""); }, [selectedId]);
+  useEffect(() => { setConfirmingDelete(false); setFeedbackOpen(false); setFeedbackText(""); setEditing(false); setEditDraft(null); }, [selectedId]);
 
   // ── Fetch ideas on mount + polling ────────────────
   const fetchIdeas = useCallback(async () => {
@@ -248,7 +251,43 @@ export default function IdeasDashboard() {
     setViewTab("pipeline");
   };
 
-  const resubmit = (id: string) => updateIdea(id, { status: "review", feedbackNote: null });
+  const canEdit = selected?.status === "needs_feedback" && selected?.submittedByEmail === userEmail;
+
+  const startEditing = () => {
+    if (selected?.refined) {
+      setEditDraft({ ...selected.refined });
+      setEditing(true);
+    }
+  };
+
+  const cancelEditing = () => {
+    setEditing(false);
+    setEditDraft(null);
+  };
+
+  const saveEdits = async () => {
+    if (!selected || !editDraft) return;
+    setSavingEdit(true);
+    await updateIdea(selected.id, { refined: editDraft as any });
+    setEditing(false);
+    setEditDraft(null);
+    setSavingEdit(false);
+  };
+
+  const updateDraft = (field: keyof RefinedIdea, value: string | string[]) => {
+    if (!editDraft) return;
+    setEditDraft({ ...editDraft, [field]: value });
+  };
+
+  const resubmit = async (id: string) => {
+    if (editing && editDraft) {
+      await updateIdea(id, { refined: editDraft as any, status: "review", feedbackNote: null });
+      setEditing(false);
+      setEditDraft(null);
+    } else {
+      await updateIdea(id, { status: "review", feedbackNote: null });
+    }
+  };
 
   const deleteIdea = async (id: string) => {
     try {
@@ -604,23 +643,80 @@ export default function IdeasDashboard() {
                   </div>
                 )}
 
-                {/* Refined idea details */}
+                {/* Refined idea details — editable when needs_feedback + user is submitter */}
                 {selected.refined && (
                   <>
+                    {/* Edit / Save bar */}
+                    {canEdit && (
+                      <div className="flex items-center gap-2">
+                        {!editing ? (
+                          <button
+                            onClick={startEditing}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                            Edit & Add Details
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              onClick={saveEdits}
+                              disabled={savingEdit}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
+                            >
+                              {savingEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                              Save Changes
+                            </button>
+                            <button
+                              onClick={cancelEditing}
+                              className="px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+
                     <div>
                       <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Summary</h4>
-                      <p className="text-sm">{selected.refined.summary}</p>
+                      {editing && editDraft ? (
+                        <textarea
+                          value={editDraft.summary}
+                          onChange={(e) => updateDraft("summary", e.target.value)}
+                          rows={2}
+                          className="w-full px-3 py-2 rounded-lg border border-blue-300 dark:border-blue-700 bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                        />
+                      ) : (
+                        <p className="text-sm">{selected.refined.summary}</p>
+                      )}
                     </div>
 
-                    {(selected.refined.sectionAffected || selected.refined.featureWorkflow) && (
+                    {(selected.refined.sectionAffected || selected.refined.featureWorkflow || editing) && (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-3 rounded-lg bg-muted/30 border border-border">
                         <div>
                           <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Section Affected</h4>
-                          <p className="text-sm font-medium">{selected.refined.sectionAffected || "—"}</p>
+                          {editing && editDraft ? (
+                            <input
+                              value={editDraft.sectionAffected || ""}
+                              onChange={(e) => updateDraft("sectionAffected", e.target.value)}
+                              className="w-full px-2 py-1.5 rounded-md border border-blue-300 dark:border-blue-700 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                            />
+                          ) : (
+                            <p className="text-sm font-medium">{selected.refined.sectionAffected || "—"}</p>
+                          )}
                         </div>
                         <div>
                           <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Feature / Workflow</h4>
-                          <p className="text-sm font-medium">{selected.refined.featureWorkflow || "—"}</p>
+                          {editing && editDraft ? (
+                            <input
+                              value={editDraft.featureWorkflow || ""}
+                              onChange={(e) => updateDraft("featureWorkflow", e.target.value)}
+                              className="w-full px-2 py-1.5 rounded-md border border-blue-300 dark:border-blue-700 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                            />
+                          ) : (
+                            <p className="text-sm font-medium">{selected.refined.featureWorkflow || "—"}</p>
+                          )}
                         </div>
                       </div>
                     )}
@@ -628,34 +724,98 @@ export default function IdeasDashboard() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Problem</h4>
-                        <p className="text-sm">{selected.refined.problem}</p>
+                        {editing && editDraft ? (
+                          <textarea
+                            value={editDraft.problem}
+                            onChange={(e) => updateDraft("problem", e.target.value)}
+                            rows={3}
+                            className="w-full px-3 py-2 rounded-lg border border-blue-300 dark:border-blue-700 bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                          />
+                        ) : (
+                          <p className="text-sm">{selected.refined.problem}</p>
+                        )}
                       </div>
                       <div>
                         <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Impact</h4>
-                        <p className="text-sm">{selected.refined.impact}</p>
+                        {editing && editDraft ? (
+                          <textarea
+                            value={editDraft.impact}
+                            onChange={(e) => updateDraft("impact", e.target.value)}
+                            rows={3}
+                            className="w-full px-3 py-2 rounded-lg border border-blue-300 dark:border-blue-700 bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                          />
+                        ) : (
+                          <p className="text-sm">{selected.refined.impact}</p>
+                        )}
                       </div>
                     </div>
 
                     <div>
                       <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Proposed Solution</h4>
-                      <p className="text-sm whitespace-pre-wrap">{selected.refined.solution}</p>
+                      {editing && editDraft ? (
+                        <textarea
+                          value={editDraft.solution}
+                          onChange={(e) => updateDraft("solution", e.target.value)}
+                          rows={5}
+                          className="w-full px-3 py-2 rounded-lg border border-blue-300 dark:border-blue-700 bg-background text-sm resize-vertical focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                        />
+                      ) : (
+                        <p className="text-sm whitespace-pre-wrap">{selected.refined.solution}</p>
+                      )}
                     </div>
 
-                    {selected.refined.requirements?.length > 0 && (
-                      <div>
-                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Requirements</h4>
-                        <ul className="space-y-1">
-                          {selected.refined.requirements.map((req, i) => (
-                            <li key={i} className="flex items-start gap-2 text-sm">
-                              <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
+                    <div>
+                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Requirements</h4>
+                      {editing && editDraft ? (
+                        <div className="space-y-2">
+                          {editDraft.requirements.map((req, i) => (
+                            <div key={i} className="flex items-start gap-2">
+                              <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold shrink-0 mt-2">
                                 {i + 1}
                               </span>
-                              {req}
-                            </li>
+                              <input
+                                value={req}
+                                onChange={(e) => {
+                                  const updated = [...editDraft.requirements];
+                                  updated[i] = e.target.value;
+                                  updateDraft("requirements", updated);
+                                }}
+                                className="flex-1 px-2 py-1.5 rounded-md border border-blue-300 dark:border-blue-700 bg-background text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                              />
+                              <button
+                                onClick={() => {
+                                  const updated = editDraft.requirements.filter((_, idx) => idx !== i);
+                                  updateDraft("requirements", updated);
+                                }}
+                                className="p-1.5 text-red-400 hover:text-red-600 transition-colors shrink-0 mt-0.5"
+                                title="Remove"
+                              >
+                                <XCircle className="w-4 h-4" />
+                              </button>
+                            </div>
                           ))}
-                        </ul>
-                      </div>
-                    )}
+                          <button
+                            onClick={() => updateDraft("requirements", [...editDraft.requirements, ""])}
+                            className="text-xs text-primary hover:underline"
+                          >
+                            + Add requirement
+                          </button>
+                        </div>
+                      ) : (
+                        selected.refined.requirements?.length > 0 && (
+                          <ul className="space-y-1">
+                            {selected.refined.requirements.map((req, i) => (
+                              <li key={i} className="flex items-start gap-2 text-sm">
+                                <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
+                                  {i + 1}
+                                </span>
+                                {req}
+                              </li>
+                            ))}
+                          </ul>
+                        )
+                      )}
+                    </div>
                   </>
                 )}
 
