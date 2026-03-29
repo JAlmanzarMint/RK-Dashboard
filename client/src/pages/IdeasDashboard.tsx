@@ -679,7 +679,7 @@ export default function IdeasDashboard() {
                 )}
 
                 {/* Dev feedback textarea */}
-                {isDev && feedbackOpen && (
+                {user?.role === "developer" && feedbackOpen && (
                   <div className="space-y-2">
                     <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Feedback to {selected.submittedBy}</h4>
                     <textarea
@@ -772,7 +772,7 @@ export default function IdeasDashboard() {
                           Cursor prompt ready — copy it above
                         </p>
                       )}
-                      {["review", "dev"].includes(selected.status) && !feedbackOpen && (
+                      {user?.role === "developer" && ["review", "dev"].includes(selected.status) && !feedbackOpen && (
                         <button
                           onClick={() => setFeedbackOpen(true)}
                           className="flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium bg-amber-500 text-white hover:bg-amber-600 transition-colors"
