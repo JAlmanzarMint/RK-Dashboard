@@ -6,6 +6,7 @@ import {
   checkRateLimit, recordFailedAttempt, clearAttempts, requireAuth,
   VERIFY_TOKEN_EXPIRY_MS, RESET_TOKEN_EXPIRY_MS,
 } from "./auth";
+import { securityLog } from "./security-logger";
 import {
   registerSchema, loginSchema, tokenSchema, emailOnlySchema,
   resetPasswordSchema, changePasswordSchema, transcriptSchema,
@@ -123,6 +124,7 @@ export async function registerRoutes(
       const limit = checkRateLimit(rateLimitKey);
       if (!limit.allowed) {
         const minutes = Math.ceil(limit.retryAfterMs / 60000);
+        securityLog("RATE_LIMITED", req, { email, detail: `login rate limit (${minutes}min remaining)` });
         return res.status(429).json({
           message: `Too many login attempts. Try again in ${minutes} minute${minutes > 1 ? "s" : ""}.`,
         });
@@ -130,14 +132,15 @@ export async function registerRoutes(
 
       const user = await storage.getUserByEmail(email.toLowerCase());
 
-      // Constant-time-ish response for invalid email to prevent enumeration
       if (!user) {
         recordFailedAttempt(rateLimitKey);
+        securityLog("LOGIN_FAILED", req, { email, detail: "unknown email" });
         return res.status(401).json({ message: "Invalid email or password" });
       }
 
       // Check account lock
       if (user.lockUntil && new Date(user.lockUntil) > new Date()) {
+        securityLog("LOGIN_LOCKED", req, { email, userId: user.id, detail: "account locked" });
         return res.status(423).json({ message: "Account temporarily locked. Try again later." });
       }
 
@@ -148,12 +151,15 @@ export async function registerRoutes(
         const updates: any = { failedLoginAttempts: newAttempts };
         if (newAttempts >= 5) {
           updates.lockUntil = new Date(Date.now() + 15 * 60 * 1000);
+          securityLog("LOGIN_LOCKED", req, { email, userId: user.id, detail: `locked after ${newAttempts} failures` });
         }
         await storage.updateUser(user.id, updates);
+        securityLog("LOGIN_FAILED", req, { email, userId: user.id, detail: `attempt ${newAttempts}` });
         return res.status(401).json({ message: "Invalid email or password" });
       }
 
       if (!user.emailVerified) {
+        securityLog("LOGIN_FAILED", req, { email, userId: user.id, detail: "email not verified" });
         return res.status(403).json({ message: "Please verify your email before logging in" });
       }
 
@@ -165,9 +171,11 @@ export async function registerRoutes(
       req.session.regenerate((err) => {
         if (err) {
           console.error("Session regeneration error:", err);
+          securityLog("API_ERROR", req, { email, detail: "session regeneration failed" });
           return res.status(500).json({ message: "Login failed" });
         }
         req.session.userId = user.id;
+        securityLog("LOGIN_SUCCESS", req, { email, userId: user.id });
         res.json({ user: sanitizeUser(user) });
       });
     } catch (err: any) {
@@ -178,11 +186,13 @@ export async function registerRoutes(
 
   // ── POST /api/auth/logout ──────────────────────────
   app.post("/api/auth/logout", (req: Request, res: Response) => {
+    const userId = req.session?.userId;
     req.session.destroy((err) => {
       if (err) {
         console.error("Logout error:", err);
         return res.status(500).json({ message: "Logout failed" });
       }
+      securityLog("LOGOUT", req, { userId });
       res.clearCookie("rk.sid");
       res.json({ message: "Logged out" });
     });
@@ -244,8 +254,7 @@ export async function registerRoutes(
           resetToken: resetTokenHash,
           resetTokenExpires: new Date(Date.now() + RESET_TOKEN_EXPIRY_MS),
         });
-        // In production: send email with resetToken
-        console.log(`[AUTH] Password reset requested for ${parsed.data.email}`);
+        securityLog("PASSWORD_RESET_REQUEST", req, { email: parsed.data.email, userId: user.id });
       }
 
       res.json({ message: "If that email exists, a reset link has been sent." });
@@ -285,9 +294,11 @@ export async function registerRoutes(
         lockUntil: null,
       });
 
+      securityLog("PASSWORD_RESET_COMPLETE", req, { userId: user.id, email: user.email });
       res.json({ message: "Password reset successfully" });
     } catch (err: any) {
       console.error("Reset password error:", err);
+      securityLog("API_ERROR", req, { detail: "password reset failed" });
       res.status(500).json({ message: "Password reset failed" });
     }
   });
@@ -314,9 +325,11 @@ export async function registerRoutes(
       const hashedPassword = await hashPassword(newPassword);
       await storage.updateUser(user.id, { password: hashedPassword });
 
+      securityLog("PASSWORD_CHANGED", req, { userId: user.id, email: user.email });
       res.json({ message: "Password changed successfully" });
     } catch (err: any) {
       console.error("Change password error:", err);
+      securityLog("API_ERROR", req, { userId: req.session?.userId, detail: "password change failed" });
       res.status(500).json({ message: "Password change failed" });
     }
   });
@@ -578,11 +591,12 @@ ${idea.requirements.map((r: string, i: number) => `${i + 1}. ${r}`).join("\n")}`
     const isSubmitter = reqUser.email === idea.submittedByEmail;
     const { status, ceoNotes, devNotes, feedbackNote, cursorPrompt, refined } = parsed.data;
 
-    // Developer actions: any status transition, cursor prompts, dev notes, feedback notes
     if (cursorPrompt !== undefined && role !== "developer") {
+      securityLog("FORBIDDEN", req, { userId: reqUser.id, detail: "non-developer tried to set cursor prompt" });
       return res.status(403).json({ message: "Only developers can set cursor prompts" });
     }
     if (devNotes !== undefined && role !== "developer") {
+      securityLog("FORBIDDEN", req, { userId: reqUser.id, detail: "non-developer tried to set dev notes" });
       return res.status(403).json({ message: "Only developers can set developer notes" });
     }
 

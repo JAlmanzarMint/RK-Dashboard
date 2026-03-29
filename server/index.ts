@@ -8,9 +8,11 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { getSessionConfig, blockBots, perUserRateLimit } from "./auth";
 import { seedUsers } from "./storage";
+import { securityLog } from "./security-logger";
 
 const app = express();
 const httpServer = createServer(app);
+const isProd = process.env.NODE_ENV === "production";
 
 declare module "http" {
   interface IncomingMessage {
@@ -18,60 +20,74 @@ declare module "http" {
   }
 }
 
+// ── HTTPS redirect (production behind Railway/proxy) ────
+if (isProd) {
+  app.use((req, res, next) => {
+    if (req.headers["x-forwarded-proto"] !== "https") {
+      return res.redirect(301, `https://${req.headers.host}${req.url}`);
+    }
+    next();
+  });
+}
+
 // ── Security headers ───────────────────────────────────
 app.use(
   helmet({
-    contentSecurityPolicy: false, // Vite injects inline scripts in dev
+    contentSecurityPolicy: isProd
+      ? {
+          directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com"],
+            imgSrc: ["'self'", "data:", "https://*.tile.openstreetmap.org"],
+            connectSrc: ["'self'"],
+            frameSrc: ["'none'"],
+            objectSrc: ["'none'"],
+            baseUri: ["'self'"],
+            formAction: ["'self'"],
+          },
+        }
+      : false,
     crossOriginEmbedderPolicy: false,
+    hsts: isProd ? { maxAge: 31536000, includeSubDomains: true, preload: true } : false,
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
   })
 );
 
-// ── Bot detection on API routes ─────────────────────────
+// ── Bot detection on API routes (with logging) ──────────
 app.use("/api", blockBots);
 
-// ── Global rate limiter (60 req/min per IP) ─────────────
-app.use(
-  rateLimit({
-    windowMs: 60_000,
-    max: 60,
+// ── Rate limit handler factory (with security logging) ──
+function rateLimitWithLog(opts: Parameters<typeof rateLimit>[0], label: string) {
+  return rateLimit({
+    ...opts,
     standardHeaders: true,
     legacyHeaders: false,
-    message: { message: "Too many requests, slow down" },
-  })
-);
+    handler: (req: Request, res: Response) => {
+      securityLog("RATE_LIMITED", req, { userId: req.session?.userId, detail: label });
+      const msg = typeof opts.message === "object" && opts.message !== null && "message" in opts.message
+        ? (opts.message as { message: string }).message
+        : "Too many requests";
+      res.status(429).json({ message: msg });
+    },
+  });
+}
+
+// ── Global rate limiter (60 req/min per IP) ─────────────
+app.use(rateLimitWithLog({ windowMs: 60_000, max: 60, message: { message: "Too many requests, slow down" } }, "global"));
 
 // ── Auth endpoints: 10 req/15min per IP ─────────────────
-app.use(
-  "/api/auth",
-  rateLimit({
-    windowMs: 15 * 60_000,
-    max: 10,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { message: "Too many authentication attempts, try again later" },
-  })
-);
+app.use("/api/auth", rateLimitWithLog({ windowMs: 15 * 60_000, max: 10, message: { message: "Too many authentication attempts, try again later" } }, "auth"));
 
 // ── AI endpoints: 10 req/15min per IP (OpenAI cost) ─────
-const aiLimiter = rateLimit({
-  windowMs: 15 * 60_000,
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { message: "AI request limit reached. Please wait before trying again." },
-});
+const aiLimiter = rateLimitWithLog({ windowMs: 15 * 60_000, max: 10, message: { message: "AI request limit reached. Please wait before trying again." } }, "ai-generation");
 app.use("/api/transcribe", aiLimiter);
 app.use("/api/ideas/generate", aiLimiter);
 app.use("/api/ideas/cursor-prompt", aiLimiter);
 
 // ── Write endpoints: 30 req/15min per IP ────────────────
-const writeLimiter = rateLimit({
-  windowMs: 15 * 60_000,
-  max: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { message: "Too many write operations. Please slow down." },
-});
+const writeLimiter = rateLimitWithLog({ windowMs: 15 * 60_000, max: 30, message: { message: "Too many write operations. Please slow down." } }, "write-ideas");
 app.post("/api/ideas", writeLimiter);
 app.patch("/api/ideas/*", writeLimiter);
 app.delete("/api/ideas/*", writeLimiter);
@@ -148,11 +164,11 @@ app.use((req, res, next) => {
   }
   await registerRoutes(httpServer, app);
 
-  app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
+  app.use((err: any, req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
-    console.error("Internal Server Error:", err);
+    securityLog("API_ERROR", req, { userId: req.session?.userId, detail: `${status}: ${message}` });
 
     if (res.headersSent) {
       return next(err);

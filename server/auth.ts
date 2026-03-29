@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import type { Request, Response, NextFunction } from "express";
 import type { User, SafeUser } from "@shared/schema";
+import { securityLog } from "./security-logger";
 
 const BCRYPT_ROUNDS = 12;
 const MAX_LOGIN_ATTEMPTS = 5;
@@ -104,6 +105,7 @@ declare module "express-session" {
 // ── Auth middleware ────────────────────────────────────
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (!req.session?.userId) {
+    securityLog("AUTH_REQUIRED", req, { detail: "Unauthenticated API access attempt" });
     return res.status(401).json({ message: "Authentication required" });
   }
   next();
@@ -160,6 +162,7 @@ export function perUserRateLimit(maxPerMinute: number) {
 
     bucket.count++;
     if (bucket.count > maxPerMinute) {
+      securityLog("RATE_LIMITED", req, { userId, detail: "per-user-session" });
       return res.status(429).json({ message: "Too many requests. Please slow down." });
     }
     next();
@@ -181,6 +184,7 @@ export function blockBots(req: Request, res: Response, next: NextFunction) {
   const ua = req.headers["user-agent"] || "";
 
   if (!ua || SUSPICIOUS_UA_PATTERNS.some((p) => p.test(ua))) {
+    securityLog("BOT_BLOCKED", req, { detail: ua.slice(0, 80) || "empty-ua" });
     return res.status(403).json({ message: "Forbidden" });
   }
 
