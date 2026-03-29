@@ -17,6 +17,7 @@ import OpenAI, { toFile } from "openai";
 import { randomUUID } from "crypto";
 import { File as NodeFile } from "node:buffer";
 import path from "path";
+import fs from "fs";
 
 if (typeof globalThis.File === "undefined") {
   (globalThis as any).File = NodeFile;
@@ -81,7 +82,44 @@ export interface Idea {
   updatedAt: string;
 }
 
-const ideas: Map<string, Idea> = new Map();
+// ── Persistent idea storage ──────────────────────────
+const DATA_DIR = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(process.cwd(), "data");
+const IDEAS_FILE = path.join(DATA_DIR, "ideas.json");
+
+function ensureDataDir() {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+}
+
+function loadIdeas(): Map<string, Idea> {
+  ensureDataDir();
+  try {
+    if (fs.existsSync(IDEAS_FILE)) {
+      const raw = fs.readFileSync(IDEAS_FILE, "utf-8");
+      const arr: Idea[] = JSON.parse(raw);
+      const map = new Map<string, Idea>();
+      for (const idea of arr) map.set(idea.id, idea);
+      console.log(`[IDEAS] Loaded ${map.size} ideas from disk`);
+      return map;
+    }
+  } catch (err) {
+    console.error("[IDEAS] Failed to load ideas from disk, starting fresh:", err);
+  }
+  return new Map();
+}
+
+function saveIdeas() {
+  try {
+    ensureDataDir();
+    const arr = Array.from(ideas.values());
+    fs.writeFileSync(IDEAS_FILE, JSON.stringify(arr, null, 2), "utf-8");
+  } catch (err) {
+    console.error("[IDEAS] Failed to persist ideas to disk:", err);
+  }
+}
+
+const ideas: Map<string, Idea> = loadIdeas();
 
 const RK_SYSTEM_PROMPT = `You are a senior product manager and business strategist for RK Logistics, a premier 3PL warehousing and logistics company.
 
@@ -617,6 +655,7 @@ ${idea.requirements.map((r: string, i: number) => `${i + 1}. ${r}`).join("\n")}`
     };
 
     ideas.set(idea.id, idea);
+    saveIdeas();
     res.status(201).json(idea);
   });
 
@@ -707,6 +746,7 @@ ${idea.requirements.map((r: string, i: number) => `${i + 1}. ${r}`).join("\n")}`
     idea.updatedAt = new Date().toISOString();
 
     ideas.set(idea.id, idea);
+    saveIdeas();
     res.json(idea);
   });
 
@@ -723,6 +763,7 @@ ${idea.requirements.map((r: string, i: number) => `${i + 1}. ${r}`).join("\n")}`
 
     if (!ideas.has(req.params.id)) return res.status(404).json({ message: "Idea not found" });
     ideas.delete(req.params.id);
+    saveIdeas();
     res.json({ message: "Deleted" });
   });
 
