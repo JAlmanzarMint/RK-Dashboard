@@ -84,6 +84,7 @@ app.use("/api/auth", rateLimitWithLog({ windowMs: 15 * 60_000, max: 10, message:
 const aiLimiter = rateLimitWithLog({ windowMs: 15 * 60_000, max: 10, message: { message: "AI request limit reached. Please wait before trying again." } }, "ai-generation");
 app.use("/api/transcribe", aiLimiter);
 app.use("/api/ideas/generate", aiLimiter);
+app.use("/api/ideas/refine-edit", aiLimiter);
 app.use("/api/ideas/cursor-prompt", aiLimiter);
 
 // ── Write endpoints: 30 req/15min per IP ────────────────

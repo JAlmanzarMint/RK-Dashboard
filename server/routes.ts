@@ -9,7 +9,7 @@ import {
 import { securityLog } from "./security-logger";
 import {
   loginSchema, tokenSchema, emailOnlySchema,
-  resetPasswordSchema, changePasswordSchema, transcriptSchema,
+  resetPasswordSchema, changePasswordSchema, transcriptSchema, refineEditSchema,
   createIdeaSchema, updateIdeaSchema, cursorPromptInputSchema, uuidParam,
 } from "@shared/schema";
 import multer from "multer";
@@ -437,6 +437,68 @@ Return ONLY valid JSON. No markdown, no code blocks, just the JSON object.`
     } catch (err: any) {
       console.error("Generate error:", err);
       res.status(500).json({ message: err.message || "Idea generation failed" });
+    }
+  });
+
+  // ── POST /api/ideas/refine-edit ───────────────────
+  app.post("/api/ideas/refine-edit", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const parsed = refineEditSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid input" });
+      const { transcript, existingRefined } = parsed.data;
+
+      const openai = getOpenAI();
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        temperature: 0.7,
+        messages: [
+          {
+            role: "system",
+            content: `${RK_SYSTEM_PROMPT}
+
+You are helping a user refine an EXISTING idea. They have recorded additional voice notes to add more detail or make changes to their idea.
+
+Here is the current state of the idea:
+${JSON.stringify(existingRefined, null, 2)}
+
+The user has spoken additional details. Merge their new input into the existing idea — update, enhance, or expand any fields that their new voice notes address. Keep everything the user hasn't changed. If they add new requirements, append them. If they clarify or correct something, update that field.
+
+Return the COMPLETE updated idea as JSON with these exact fields:
+{
+  "title": "A concise title (5-10 words)",
+  "summary": "A 2-3 sentence executive summary",
+  "problem": "What problem this solves or opportunity it captures",
+  "solution": "Detailed description of the proposed feature/change (2-3 paragraphs)",
+  "impact": "Expected business impact (revenue, efficiency, customer experience)",
+  "priority": "HIGH" or "MEDIUM" or "LOW",
+  "department": "Which department this primarily affects",
+  "sectionAffected": "Dashboard section this idea would live in",
+  "featureWorkflow": "The exact feature, widget, or workflow being requested (3-12 words)",
+  "requirements": ["requirement 1", "requirement 2", ...]
+}
+
+Return ONLY valid JSON. No markdown, no code blocks, just the JSON object.`
+          },
+          {
+            role: "user",
+            content: `Here are the additional voice notes to merge into the existing idea:\n\n"${transcript}"`
+          }
+        ],
+      });
+
+      const content = completion.choices[0]?.message?.content || "{}";
+      let refined;
+      try {
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        refined = JSON.parse(jsonMatch ? jsonMatch[0] : content);
+      } catch {
+        return res.status(500).json({ message: "AI returned invalid JSON" });
+      }
+
+      res.json({ refined });
+    } catch (err: any) {
+      console.error("Refine-edit error:", err);
+      res.status(500).json({ message: err.message || "Refine-edit failed" });
     }
   });
 

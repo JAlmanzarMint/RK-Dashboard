@@ -97,10 +97,14 @@ export default function IdeasDashboard() {
   const [editing, setEditing] = useState(false);
   const [editDraft, setEditDraft] = useState<RefinedIdea | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [editVoiceStage, setEditVoiceStage] = useState<"idle" | "recording" | "transcribing" | "refining">("idle");
   const [error, setError] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  const editRecorderRef = useRef<MediaRecorder | null>(null);
+  const editChunksRef = useRef<Blob[]>([]);
+  const editStreamRef = useRef<MediaStream | null>(null);
 
   const isDev = user?.role === "developer" || user?.role === "admin";
   const userEmail = user?.email || "";
@@ -108,7 +112,7 @@ export default function IdeasDashboard() {
 
   const selected = ideas.find((i) => i.id === selectedId) || null;
 
-  useEffect(() => { setConfirmingDelete(false); setFeedbackOpen(false); setFeedbackText(""); setEditing(false); setEditDraft(null); }, [selectedId]);
+  useEffect(() => { setConfirmingDelete(false); setFeedbackOpen(false); setFeedbackText(""); setEditing(false); setEditDraft(null); setEditVoiceStage("idle"); }, [selectedId]);
 
   // ── Fetch ideas on mount + polling ────────────────
   const fetchIdeas = useCallback(async () => {
@@ -261,6 +265,7 @@ export default function IdeasDashboard() {
   const cancelEditing = () => {
     setEditing(false);
     setEditDraft(null);
+    setEditVoiceStage("idle");
   };
 
   const saveEdits = async () => {
@@ -284,6 +289,77 @@ export default function IdeasDashboard() {
       setEditDraft(null);
     } else {
       await updateIdea(id, { status: "review", feedbackNote: null });
+    }
+  };
+
+  // ── Edit-mode voice recording ──────────────────────
+  const startEditRecording = async () => {
+    setError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      editStreamRef.current = stream;
+      const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      editChunksRef.current = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) editChunksRef.current.push(e.data);
+      };
+
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(editChunksRef.current, { type: "audio/webm" });
+        await processEditAudio(blob);
+      };
+
+      recorder.start();
+      editRecorderRef.current = recorder;
+      setEditVoiceStage("recording");
+    } catch {
+      setError("Microphone access denied. Please allow microphone permissions.");
+    }
+  };
+
+  const stopEditRecording = () => {
+    if (editRecorderRef.current && editRecorderRef.current.state === "recording") {
+      editRecorderRef.current.stop();
+      setEditVoiceStage("transcribing");
+    }
+  };
+
+  const processEditAudio = async (blob: Blob) => {
+    if (!editDraft) return;
+    try {
+      setEditVoiceStage("transcribing");
+      const formData = new FormData();
+      formData.append("audio", blob, "recording.webm");
+
+      const transcribeRes = await fetch("/api/transcribe", { method: "POST", body: formData });
+      if (!transcribeRes.ok) {
+        const errText = await transcribeRes.text();
+        let msg = "Transcription failed";
+        try { msg = JSON.parse(errText).message || msg; } catch { msg = errText || msg; }
+        throw new Error(msg);
+      }
+      const { transcript } = await transcribeRes.json();
+
+      setEditVoiceStage("refining");
+      const refineRes = await fetch("/api/ideas/refine-edit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transcript, existingRefined: editDraft }),
+      });
+      if (!refineRes.ok) {
+        const errText = await refineRes.text();
+        let msg = "AI refinement failed";
+        try { msg = JSON.parse(errText).message || msg; } catch { msg = errText || msg; }
+        throw new Error(msg);
+      }
+      const { refined } = await refineRes.json();
+      setEditDraft(refined);
+      setEditVoiceStage("idle");
+    } catch (err: any) {
+      setError(err.message || "Something went wrong");
+      setEditVoiceStage("idle");
     }
   };
 
@@ -646,32 +722,70 @@ export default function IdeasDashboard() {
                   <>
                     {/* Edit / Save bar */}
                     {canEdit && (
-                      <div className="flex items-center gap-2">
-                        {!editing ? (
-                          <button
-                            onClick={startEditing}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                            Edit & Add Details
-                          </button>
-                        ) : (
-                          <>
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {!editing ? (
                             <button
-                              onClick={saveEdits}
-                              disabled={savingEdit}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
+                              onClick={startEditing}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
                             >
-                              {savingEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                              Save Changes
+                              <Pencil className="w-3.5 h-3.5" />
+                              Edit & Add Details
                             </button>
-                            <button
-                              onClick={cancelEditing}
-                              className="px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-                            >
-                              Cancel
-                            </button>
-                          </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={saveEdits}
+                                disabled={savingEdit || editVoiceStage !== "idle"}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
+                              >
+                                {savingEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                                Save Changes
+                              </button>
+                              <button
+                                onClick={cancelEditing}
+                                disabled={editVoiceStage !== "idle"}
+                                className="px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-50 transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Voice recorder for editing */}
+                        {editing && (
+                          <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border">
+                            {editVoiceStage === "idle" ? (
+                              <button
+                                onClick={startEditRecording}
+                                className="flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                              >
+                                <Mic className="w-4 h-4" />
+                                Add Details by Voice
+                              </button>
+                            ) : editVoiceStage === "recording" ? (
+                              <button
+                                onClick={stopEditRecording}
+                                className="flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium bg-red-500 text-white hover:bg-red-600 transition-colors animate-pulse"
+                              >
+                                <Square className="w-3.5 h-3.5" />
+                                Stop Recording
+                              </button>
+                            ) : (
+                              <div className="flex items-center gap-2 text-xs font-medium text-primary">
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                {editVoiceStage === "transcribing" ? "Transcribing..." : "AI is merging your updates..."}
+                              </div>
+                            )}
+                            <p className="text-[11px] text-muted-foreground">
+                              {editVoiceStage === "idle"
+                                ? "Speak additional details — AI will merge them into this idea"
+                                : editVoiceStage === "recording"
+                                ? "Listening... tap stop when done"
+                                : "Fields will update automatically"}
+                            </p>
+                          </div>
                         )}
                       </div>
                     )}

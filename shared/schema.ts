@@ -85,6 +85,11 @@ export const transcriptSchema = z.object({
   transcript: z.string().min(1, "No transcript provided").max(50000),
 });
 
+export const refineEditSchema = z.object({
+  transcript: z.string().min(1, "No transcript provided").max(50000),
+  existingRefined: refinedIdeaSchema,
+});
+
 export const createIdeaSchema = z.object({
   rawTranscript: safeText(50000).optional().default(""),
   refined: refinedIdeaSchema.nullable().optional().default(null),
