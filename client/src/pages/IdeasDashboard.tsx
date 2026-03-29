@@ -660,7 +660,7 @@ export default function IdeasDashboard() {
                 )}
 
                 {/* Cursor prompt (dev-only) */}
-                {isDev && selected.cursorPrompt && (
+                {user?.role === "developer" && selected.cursorPrompt && (
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cursor Prompt</h4>
@@ -739,8 +739,37 @@ export default function IdeasDashboard() {
                     </>
                   )}
 
-                  {/* DEVELOPER actions */}
-                  {isDev && (
+                  {/* ADMIN actions — approve only */}
+                  {user?.role === "admin" && (
+                    <>
+                      {selected.status === "review" && (
+                        <button
+                          onClick={() => approveToDevBucket(selected.id)}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium bg-green-600 text-white hover:bg-green-700 transition-colors"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          Approve to Dev Bucket
+                        </button>
+                      )}
+                      {selected.status === "needs_feedback" && selected.submittedByEmail === userEmail && (
+                        <button
+                          onClick={() => resubmit(selected.id)}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                        >
+                          <RotateCcw className="w-4 h-4" />
+                          Resubmit for Review
+                        </button>
+                      )}
+                      {selected.status === "dev" && (
+                        <p className="text-sm text-muted-foreground italic">
+                          In Dev Bucket — waiting for developer
+                        </p>
+                      )}
+                    </>
+                  )}
+
+                  {/* DEVELOPER actions — full control */}
+                  {user?.role === "developer" && (
                     <>
                       {selected.status === "review" && (
                         <button
@@ -772,7 +801,7 @@ export default function IdeasDashboard() {
                           Cursor prompt ready — copy it above
                         </p>
                       )}
-                      {user?.role === "developer" && ["review", "dev"].includes(selected.status) && !feedbackOpen && (
+                      {["review", "dev"].includes(selected.status) && !feedbackOpen && (
                         <button
                           onClick={() => setFeedbackOpen(true)}
                           className="flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium bg-amber-500 text-white hover:bg-amber-600 transition-colors"
