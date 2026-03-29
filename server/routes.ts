@@ -221,7 +221,7 @@ export async function registerRoutes(
           resetTokenExpires: new Date(Date.now() + RESET_TOKEN_EXPIRY_MS),
         });
         // In production: send email with resetToken
-        console.log(`[AUTH] Password reset token for ${email}: ${resetToken}`);
+        console.log(`[AUTH] Password reset requested for ${email}`);
       }
 
       res.json({ message: "If that email exists, a reset link has been sent." });

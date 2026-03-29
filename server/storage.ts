@@ -91,7 +91,12 @@ const SEED_USERS = [
 ];
 
 export async function seedUsers() {
-  const tempPassword = process.env.SEED_PASSWORD || "RKLogistics2026!";
+  const tempPassword = process.env.SEED_PASSWORD;
+  if (!tempPassword) {
+    console.warn("[AUTH] SEED_PASSWORD env var not set — skipping user seeding");
+    return;
+  }
+
   const hashed = await hashPassword(tempPassword);
   let created = 0;
 
@@ -106,7 +111,6 @@ export async function seedUsers() {
         emailVerifyToken: null,
         emailVerifyExpires: null,
       });
-      // Mark as verified so they can log in immediately
       const user = await storage.getUserByEmail(seed.email);
       if (user) await storage.updateUser(user.id, { emailVerified: true });
       created++;
@@ -114,7 +118,6 @@ export async function seedUsers() {
   }
 
   if (created > 0) {
-    console.log(`[AUTH] Seeded ${created} users (temp password: ${tempPassword})`);
-    console.log("[AUTH] Users should change their password after first login");
+    console.log(`[AUTH] Seeded ${created} users. Users should change their password after first login.`);
   }
 }
