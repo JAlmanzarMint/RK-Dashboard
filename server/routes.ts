@@ -629,12 +629,12 @@ ${idea.requirements.map((r: string, i: number) => `${i + 1}. ${r}`).join("\n")}`
       idea.status = status;
     }
 
-    // Refined edits: check against previousStatus (before mutation) so resubmit + edit works
+    // Refined edits: submitter can edit while in review or needs_feedback; developers can always edit
     if (refined !== undefined) {
-      if (role === "developer" || (isSubmitter && previousStatus === "needs_feedback")) {
+      if (role === "developer" || (isSubmitter && (previousStatus === "needs_feedback" || previousStatus === "review"))) {
         idea.refined = refined;
       } else {
-        return res.status(403).json({ message: "You can only edit ideas sent back to you for feedback" });
+        return res.status(403).json({ message: "You can only edit your own ideas while they are in review" });
       }
     }
 

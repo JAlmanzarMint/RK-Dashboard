@@ -249,7 +249,7 @@ export default function IdeasDashboard() {
     setViewTab("pipeline");
   };
 
-  const canEdit = selected?.status === "needs_feedback" && selected?.submittedByEmail === userEmail;
+  const canEdit = (selected?.status === "needs_feedback" || selected?.status === "review") && selected?.submittedByEmail === userEmail;
 
   const startEditing = () => {
     if (selected?.refined) {
