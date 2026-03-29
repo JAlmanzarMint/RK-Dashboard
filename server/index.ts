@@ -6,7 +6,7 @@ import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
-import { getSessionConfig } from "./auth";
+import { getSessionConfig, blockBots, perUserRateLimit } from "./auth";
 import { seedUsers } from "./storage";
 
 const app = express();
@@ -26,28 +26,58 @@ app.use(
   })
 );
 
-// ── Global rate limiter (100 req/min per IP) ───────────
+// ── Bot detection on API routes ─────────────────────────
+app.use("/api", blockBots);
+
+// ── Global rate limiter (60 req/min per IP) ─────────────
 app.use(
   rateLimit({
     windowMs: 60_000,
-    max: 100,
+    max: 60,
     standardHeaders: true,
     legacyHeaders: false,
     message: { message: "Too many requests, slow down" },
   })
 );
 
-// ── Stricter rate limit on auth endpoints ──────────────
+// ── Auth endpoints: 10 req/15min per IP ─────────────────
 app.use(
   "/api/auth",
   rateLimit({
     windowMs: 15 * 60_000,
-    max: 20,
+    max: 10,
     standardHeaders: true,
     legacyHeaders: false,
     message: { message: "Too many authentication attempts, try again later" },
   })
 );
+
+// ── AI endpoints: 10 req/15min per IP (OpenAI cost) ─────
+const aiLimiter = rateLimit({
+  windowMs: 15 * 60_000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "AI request limit reached. Please wait before trying again." },
+});
+app.use("/api/transcribe", aiLimiter);
+app.use("/api/ideas/generate", aiLimiter);
+app.use("/api/ideas/cursor-prompt", aiLimiter);
+
+// ── Write endpoints: 30 req/15min per IP ────────────────
+const writeLimiter = rateLimit({
+  windowMs: 15 * 60_000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many write operations. Please slow down." },
+});
+app.post("/api/ideas", writeLimiter);
+app.patch("/api/ideas/*", writeLimiter);
+app.delete("/api/ideas/*", writeLimiter);
+
+// ── Per-user session rate limit (40 req/min) ────────────
+app.use("/api", perUserRateLimit(40));
 
 // ── Body parsing ───────────────────────────────────────
 app.use(

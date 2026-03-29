@@ -135,4 +135,56 @@ export function getSessionConfig() {
   };
 }
 
+// ── Per-user session rate limiter ─────────────────────
+const userBuckets = new Map<string, { count: number; windowStart: number }>();
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, val] of userBuckets) {
+    if (now - val.windowStart > 60_000) userBuckets.delete(key);
+  }
+}, 30_000);
+
+export function perUserRateLimit(maxPerMinute: number) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const userId = req.session?.userId;
+    if (!userId) return next();
+
+    const now = Date.now();
+    const bucket = userBuckets.get(userId);
+
+    if (!bucket || now - bucket.windowStart > 60_000) {
+      userBuckets.set(userId, { count: 1, windowStart: now });
+      return next();
+    }
+
+    bucket.count++;
+    if (bucket.count > maxPerMinute) {
+      return res.status(429).json({ message: "Too many requests. Please slow down." });
+    }
+    next();
+  };
+}
+
+// ── Bot / automation detection ───────────────────────
+const SUSPICIOUS_UA_PATTERNS = [
+  /^$/,
+  /curl/i, /wget/i, /python-requests/i, /python-urllib/i,
+  /httpclient/i, /java\//i, /go-http-client/i,
+  /postman/i, /insomnia/i, /httpie/i,
+  /scrapy/i, /mechanize/i, /phantom/i, /headless/i,
+  /bot(?!.*(?:google|bing|slack|discord))/i,
+  /crawler/i, /spider/i, /scraper/i,
+];
+
+export function blockBots(req: Request, res: Response, next: NextFunction) {
+  const ua = req.headers["user-agent"] || "";
+
+  if (!ua || SUSPICIOUS_UA_PATTERNS.some((p) => p.test(ua))) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
+  next();
+}
+
 export { VERIFY_TOKEN_EXPIRY_MS, RESET_TOKEN_EXPIRY_MS };
