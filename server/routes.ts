@@ -6,17 +6,42 @@ import {
   checkRateLimit, recordFailedAttempt, clearAttempts, requireAuth,
   VERIFY_TOKEN_EXPIRY_MS, RESET_TOKEN_EXPIRY_MS,
 } from "./auth";
-import { registerSchema, loginSchema } from "@shared/schema";
+import {
+  registerSchema, loginSchema, tokenSchema, emailOnlySchema,
+  resetPasswordSchema, changePasswordSchema, transcriptSchema,
+  createIdeaSchema, updateIdeaSchema, cursorPromptInputSchema, uuidParam,
+} from "@shared/schema";
 import multer from "multer";
 import OpenAI, { toFile } from "openai";
 import { randomUUID } from "crypto";
 import { File as NodeFile } from "node:buffer";
+import path from "path";
 
 if (typeof globalThis.File === "undefined") {
   (globalThis as any).File = NodeFile;
 }
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
+const ALLOWED_AUDIO_MIMES = new Set([
+  "audio/webm", "audio/wav", "audio/wave", "audio/x-wav",
+  "audio/mp3", "audio/mpeg", "audio/mp4", "audio/m4a", "audio/x-m4a",
+  "audio/ogg", "audio/flac", "audio/x-flac",
+  "video/webm", "video/mp4",
+]);
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!ALLOWED_AUDIO_MIMES.has(file.mimetype)) {
+      return cb(new Error(`Invalid file type: ${file.mimetype}. Only audio files are accepted.`));
+    }
+    cb(null, true);
+  },
+});
+
+function sanitizeFilename(name: string): string {
+  return path.basename(name).replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 100);
+}
 
 function getOpenAI() {
   const key = process.env.OPENAI_API_KEY;
@@ -179,10 +204,10 @@ export async function registerRoutes(
   // ── POST /api/auth/verify-email ────────────────────
   app.post("/api/auth/verify-email", async (req: Request, res: Response) => {
     try {
-      const { token } = req.body;
-      if (!token) return res.status(400).json({ message: "Token required" });
+      const parsed = tokenSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: "Invalid token" });
 
-      const tokenHash = hashToken(token);
+      const tokenHash = hashToken(parsed.data.token);
       const user = await storage.getUserByVerifyToken(tokenHash);
 
       if (!user) {
@@ -208,11 +233,10 @@ export async function registerRoutes(
   // ── POST /api/auth/forgot-password ─────────────────
   app.post("/api/auth/forgot-password", async (req: Request, res: Response) => {
     try {
-      const { email } = req.body;
-      // Always return success to prevent email enumeration
-      if (!email) return res.json({ message: "If that email exists, a reset link has been sent." });
+      const parsed = emailOnlySchema.safeParse(req.body);
+      if (!parsed.success) return res.json({ message: "If that email exists, a reset link has been sent." });
 
-      const user = await storage.getUserByEmail(email.toLowerCase());
+      const user = await storage.getUserByEmail(parsed.data.email.toLowerCase());
       if (user) {
         const resetToken = generateToken();
         const resetTokenHash = hashToken(resetToken);
@@ -234,16 +258,13 @@ export async function registerRoutes(
   // ── POST /api/auth/reset-password ──────────────────
   app.post("/api/auth/reset-password", async (req: Request, res: Response) => {
     try {
-      const { token, password } = req.body;
-      if (!token || !password) {
-        return res.status(400).json({ message: "Token and new password are required" });
+      const parsed = resetPasswordSchema.safeParse(req.body);
+      if (!parsed.success) {
+        const msg = parsed.error.errors[0]?.message || "Invalid input";
+        return res.status(400).json({ message: msg });
       }
 
-      const validation = registerSchema.shape.password.safeParse(password);
-      if (!validation.success) {
-        return res.status(400).json({ message: validation.error.errors[0].message });
-      }
-
+      const { token, password } = parsed.data;
       const tokenHash = hashToken(token);
       const user = await storage.getUserByResetToken(tokenHash);
 
@@ -274,15 +295,13 @@ export async function registerRoutes(
   // ── POST /api/auth/change-password ──────────────────
   app.post("/api/auth/change-password", requireAuth, async (req: Request, res: Response) => {
     try {
-      const { currentPassword, newPassword } = req.body;
-      if (!currentPassword || !newPassword) {
-        return res.status(400).json({ message: "Current password and new password are required" });
+      const parsed = changePasswordSchema.safeParse(req.body);
+      if (!parsed.success) {
+        const msg = parsed.error.errors[0]?.message || "Invalid input";
+        return res.status(400).json({ message: msg });
       }
 
-      const validation = registerSchema.shape.password.safeParse(newPassword);
-      if (!validation.success) {
-        return res.status(400).json({ message: validation.error.errors[0].message });
-      }
+      const { currentPassword, newPassword } = parsed.data;
 
       const user = await storage.getUser(req.session.userId!);
       if (!user) return res.status(401).json({ message: "Not authenticated" });
@@ -307,14 +326,22 @@ export async function registerRoutes(
   // ================================================================
 
   // ── POST /api/transcribe ──────────────────────────
-  app.post("/api/transcribe", requireAuth, upload.single("audio"), async (req: Request, res: Response) => {
+  app.post("/api/transcribe", requireAuth, (req: Request, res: Response, next) => {
+    upload.single("audio")(req, res, (err) => {
+      if (err) {
+        return res.status(400).json({ message: err.message || "File upload failed" });
+      }
+      next();
+    });
+  }, async (req: Request, res: Response) => {
     try {
       if (!req.file) return res.status(400).json({ message: "No audio file provided" });
 
       const openai = getOpenAI();
+      const safeName = sanitizeFilename(req.file.originalname || "recording.webm");
       const audioFile = await toFile(
         req.file.buffer,
-        req.file.originalname || "recording.webm",
+        safeName,
         { type: req.file.mimetype || "audio/webm" }
       );
 
@@ -335,8 +362,9 @@ export async function registerRoutes(
   // ── POST /api/ideas/generate ──────────────────────
   app.post("/api/ideas/generate", requireAuth, async (req: Request, res: Response) => {
     try {
-      const { transcript } = req.body;
-      if (!transcript) return res.status(400).json({ message: "No transcript provided" });
+      const parsed = transcriptSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid transcript" });
+      const { transcript } = parsed.data;
 
       const openai = getOpenAI();
       const completion = await openai.chat.completions.create({
@@ -407,8 +435,9 @@ Return ONLY valid JSON. No markdown, no code blocks, just the JSON object.`
         return res.status(403).json({ message: "Only developers can generate cursor prompts" });
       }
 
-      const { idea } = req.body;
-      if (!idea) return res.status(400).json({ message: "No idea provided" });
+      const parsed = cursorPromptInputSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid idea data" });
+      const { idea } = parsed.data;
 
       const openai = getOpenAI();
       const completion = await openai.chat.completions.create({
@@ -443,8 +472,8 @@ Key directories:
 - server/storage.ts — storage interface
 
 Design system:
-- Primary color: teal (--primary: 174 72% 33%)
-- Font: Satoshi
+- Primary color: green (--primary: 100 41% 46%)
+- Font: Inter
 - Text sizes: text-xs (10px body), text-sm (labels), text-[10px] (micro)
 - Cards: Card/CardContent/CardHeader/CardTitle from shadcn/ui
 - Badges: Badge with variant="outline" and bg-color/10 patterns
@@ -470,11 +499,11 @@ Summary: ${idea.summary}
 Problem: ${idea.problem}
 Solution: ${idea.solution}
 Department: ${idea.department}
-Section Affected: ${idea.sectionAffected || "TBD"}
-Feature/Workflow: ${idea.featureWorkflow || "TBD"}
+Section Affected: ${idea.sectionAffected}
+Feature/Workflow: ${idea.featureWorkflow}
 Priority: ${idea.priority}
 Requirements:
-${(idea.requirements || []).map((r: string, i: number) => `${i + 1}. ${r}`).join("\n")}`
+${idea.requirements.map((r: string, i: number) => `${i + 1}. ${r}`).join("\n")}`
           }
         ],
       });
@@ -492,18 +521,21 @@ ${(idea.requirements || []).map((r: string, i: number) => `${i + 1}. ${r}`).join
     const user = await storage.getUser(req.session.userId!);
     if (!user) return res.status(401).json({ message: "Not authenticated" });
 
-    const { rawTranscript, refined, ceoNotes } = req.body;
+    const parsed = createIdeaSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid idea data" });
+
+    const { rawTranscript, refined, ceoNotes } = parsed.data;
 
     const idea: Idea = {
       id: randomUUID(),
-      rawTranscript: rawTranscript || "",
+      rawTranscript,
       refined: refined || null,
       cursorPrompt: null,
       status: "review",
       submittedBy: user.username,
       submittedByEmail: user.email,
       feedbackNote: null,
-      ceoNotes: ceoNotes || "",
+      ceoNotes,
       devNotes: "",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -523,6 +555,7 @@ ${(idea.requirements || []).map((r: string, i: number) => `${i + 1}. ${r}`).join
 
   // ── GET /api/ideas/:id ──────────────────────────────
   app.get("/api/ideas/:id", requireAuth, (req: Request, res: Response) => {
+    if (!uuidParam.safeParse(req.params.id).success) return res.status(400).json({ message: "Invalid ID format" });
     const idea = ideas.get(req.params.id);
     if (!idea) return res.status(404).json({ message: "Idea not found" });
     res.json(idea);
@@ -530,6 +563,11 @@ ${(idea.requirements || []).map((r: string, i: number) => `${i + 1}. ${r}`).join
 
   // ── PATCH /api/ideas/:id ────────────────────────────
   app.patch("/api/ideas/:id", requireAuth, async (req: Request, res: Response) => {
+    if (!uuidParam.safeParse(req.params.id).success) return res.status(400).json({ message: "Invalid ID format" });
+
+    const parsed = updateIdeaSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ message: parsed.error.errors[0]?.message || "Invalid update data" });
+
     const reqUser = await storage.getUser(req.session.userId!);
     if (!reqUser) return res.status(401).json({ message: "Not authenticated" });
 
@@ -538,7 +576,7 @@ ${(idea.requirements || []).map((r: string, i: number) => `${i + 1}. ${r}`).join
 
     const role = reqUser.role;
     const isSubmitter = reqUser.email === idea.submittedByEmail;
-    const { status, ceoNotes, devNotes, feedbackNote, cursorPrompt, refined } = req.body;
+    const { status, ceoNotes, devNotes, feedbackNote, cursorPrompt, refined } = parsed.data;
 
     // Developer actions: any status transition, cursor prompts, dev notes, feedback notes
     if (cursorPrompt !== undefined && role !== "developer") {
@@ -595,6 +633,8 @@ ${(idea.requirements || []).map((r: string, i: number) => `${i + 1}. ${r}`).join
 
   // ── DELETE /api/ideas/:id ───────────────────────────
   app.delete("/api/ideas/:id", requireAuth, async (req: Request, res: Response) => {
+    if (!uuidParam.safeParse(req.params.id).success) return res.status(400).json({ message: "Invalid ID format" });
+
     const reqUser = await storage.getUser(req.session.userId!);
     if (!reqUser) return res.status(401).json({ message: "Not authenticated" });
 
