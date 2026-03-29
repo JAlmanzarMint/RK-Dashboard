@@ -402,6 +402,11 @@ Return ONLY valid JSON. No markdown, no code blocks, just the JSON object.`
   // ── POST /api/ideas/cursor-prompt ─────────────────
   app.post("/api/ideas/cursor-prompt", requireAuth, async (req: Request, res: Response) => {
     try {
+      const reqUser = await storage.getUser(req.session.userId!);
+      if (!reqUser || reqUser.role !== "developer") {
+        return res.status(403).json({ message: "Only developers can generate cursor prompts" });
+      }
+
       const { idea } = req.body;
       if (!idea) return res.status(400).json({ message: "No idea provided" });
 
@@ -485,16 +490,18 @@ ${(idea.requirements || []).map((r: string, i: number) => `${i + 1}. ${r}`).join
   // ── POST /api/ideas ─────────────────────────────────
   app.post("/api/ideas", requireAuth, async (req: Request, res: Response) => {
     const user = await storage.getUser(req.session.userId!);
-    const { rawTranscript, refined, ceoNotes, status } = req.body;
+    if (!user) return res.status(401).json({ message: "Not authenticated" });
+
+    const { rawTranscript, refined, ceoNotes } = req.body;
 
     const idea: Idea = {
       id: randomUUID(),
       rawTranscript: rawTranscript || "",
       refined: refined || null,
       cursorPrompt: null,
-      status: status || "review",
-      submittedBy: user?.username || "Unknown",
-      submittedByEmail: user?.email || "",
+      status: "review",
+      submittedBy: user.username,
+      submittedByEmail: user.email,
       feedbackNote: null,
       ceoNotes: ceoNotes || "",
       devNotes: "",
@@ -522,17 +529,64 @@ ${(idea.requirements || []).map((r: string, i: number) => `${i + 1}. ${r}`).join
   });
 
   // ── PATCH /api/ideas/:id ────────────────────────────
-  app.patch("/api/ideas/:id", requireAuth, (req: Request, res: Response) => {
+  app.patch("/api/ideas/:id", requireAuth, async (req: Request, res: Response) => {
+    const reqUser = await storage.getUser(req.session.userId!);
+    if (!reqUser) return res.status(401).json({ message: "Not authenticated" });
+
     const idea = ideas.get(req.params.id);
     if (!idea) return res.status(404).json({ message: "Idea not found" });
 
+    const role = reqUser.role;
+    const isSubmitter = reqUser.email === idea.submittedByEmail;
     const { status, ceoNotes, devNotes, feedbackNote, cursorPrompt, refined } = req.body;
-    if (status !== undefined) idea.status = status;
+
+    // Developer actions: any status transition, cursor prompts, dev notes, feedback notes
+    if (cursorPrompt !== undefined && role !== "developer") {
+      return res.status(403).json({ message: "Only developers can set cursor prompts" });
+    }
+    if (devNotes !== undefined && role !== "developer") {
+      return res.status(403).json({ message: "Only developers can set developer notes" });
+    }
+
+    if (status !== undefined) {
+      const VALID_STATUSES: IdeaStatus[] = ["review", "approved", "dev", "needs_feedback", "completed", "rejected"];
+      if (!VALID_STATUSES.includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+
+      // Developer-only transitions
+      if (["needs_feedback", "completed"].includes(status) && role !== "developer") {
+        return res.status(403).json({ message: "Only developers can perform this action" });
+      }
+
+      // Admin or developer can approve / move to dev / reject
+      if (["approved", "dev", "rejected"].includes(status) && role !== "developer" && role !== "admin") {
+        return res.status(403).json({ message: "Insufficient permissions" });
+      }
+
+      // Resubmit (review): only the original submitter when idea is in needs_feedback
+      if (status === "review" && idea.status === "needs_feedback") {
+        if (!isSubmitter && role !== "developer") {
+          return res.status(403).json({ message: "Only the original submitter can resubmit this idea" });
+        }
+      }
+
+      idea.status = status;
+    }
+
+    // Refined content edits: only submitter when sent back, or developer
+    if (refined !== undefined) {
+      if (role === "developer" || (isSubmitter && idea.status === "needs_feedback")) {
+        idea.refined = refined;
+      } else {
+        return res.status(403).json({ message: "You can only edit ideas sent back to you for feedback" });
+      }
+    }
+
     if (ceoNotes !== undefined) idea.ceoNotes = ceoNotes;
-    if (devNotes !== undefined) idea.devNotes = devNotes;
-    if (feedbackNote !== undefined) idea.feedbackNote = feedbackNote;
+    if (feedbackNote !== undefined && role === "developer") idea.feedbackNote = feedbackNote;
     if (cursorPrompt !== undefined) idea.cursorPrompt = cursorPrompt;
-    if (refined !== undefined) idea.refined = refined;
+    if (devNotes !== undefined) idea.devNotes = devNotes;
     idea.updatedAt = new Date().toISOString();
 
     ideas.set(idea.id, idea);
@@ -540,7 +594,14 @@ ${(idea.requirements || []).map((r: string, i: number) => `${i + 1}. ${r}`).join
   });
 
   // ── DELETE /api/ideas/:id ───────────────────────────
-  app.delete("/api/ideas/:id", requireAuth, (req: Request, res: Response) => {
+  app.delete("/api/ideas/:id", requireAuth, async (req: Request, res: Response) => {
+    const reqUser = await storage.getUser(req.session.userId!);
+    if (!reqUser) return res.status(401).json({ message: "Not authenticated" });
+
+    if (reqUser.role !== "developer" && reqUser.role !== "admin") {
+      return res.status(403).json({ message: "Insufficient permissions" });
+    }
+
     if (!ideas.has(req.params.id)) return res.status(404).json({ message: "Idea not found" });
     ideas.delete(req.params.id);
     res.json({ message: "Deleted" });
