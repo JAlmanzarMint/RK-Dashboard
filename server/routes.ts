@@ -83,51 +83,6 @@ export async function registerRoutes(
   // AUTH ROUTES (public — no requireAuth)
   // ================================================================
 
-  // ── POST /api/auth/register ─────────────────────────
-  app.post("/api/auth/register", async (req: Request, res: Response) => {
-    try {
-      const parsed = registerSchema.safeParse(req.body);
-      if (!parsed.success) {
-        const errors = parsed.error.errors.map((e) => e.message);
-        return res.status(400).json({ message: errors.join(". ") });
-      }
-
-      const { username, email, password } = parsed.data;
-
-      const existingEmail = await storage.getUserByEmail(email);
-      if (existingEmail) {
-        return res.status(409).json({ message: "An account with this email already exists" });
-      }
-      const existingUsername = await storage.getUserByUsername(username);
-      if (existingUsername) {
-        return res.status(409).json({ message: "This username is already taken" });
-      }
-
-      const hashedPassword = await hashPassword(password);
-      const verifyToken = generateToken();
-      const verifyTokenHash = hashToken(verifyToken);
-
-      const user = await storage.createUser({
-        username,
-        email: email.toLowerCase(),
-        password: hashedPassword,
-        emailVerifyToken: verifyTokenHash,
-        emailVerifyExpires: new Date(Date.now() + VERIFY_TOKEN_EXPIRY_MS),
-      });
-
-      // In production, send verification email here with verifyToken
-      // For now, auto-verify to allow immediate login
-      await storage.updateUser(user.id, { emailVerified: true, emailVerifyToken: null, emailVerifyExpires: null });
-      const updated = await storage.getUser(user.id);
-
-      req.session.userId = user.id;
-      res.status(201).json({ user: sanitizeUser(updated || user) });
-    } catch (err: any) {
-      console.error("Register error:", err);
-      res.status(500).json({ message: "Registration failed" });
-    }
-  });
-
   // ── POST /api/auth/login ───────────────────────────
   app.post("/api/auth/login", async (req: Request, res: Response) => {
     try {
