@@ -259,8 +259,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
               {user && (
                 <div className="relative" ref={menuRef}>
                   <button
+                    type="button"
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
-                    className="flex items-center gap-2 p-1 rounded-lg hover:bg-accent transition-colors"
+                    className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-accent transition-colors cursor-pointer select-none"
                   >
                     <div className="hidden sm:flex flex-col items-end">
                       <span className="text-xs font-medium leading-none">{user.username}</span>
@@ -269,6 +270,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary uppercase">
                       {user.username.slice(0, 2)}
                     </div>
+                    <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${userMenuOpen ? "rotate-180" : ""}`} />
                   </button>
                   {userMenuOpen && (
                     <div className="absolute right-0 top-full mt-1 w-48 bg-card border border-border rounded-lg shadow-lg py-1 z-50">
