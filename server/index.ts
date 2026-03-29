@@ -111,7 +111,11 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  await seedUsers();
+  try {
+    await seedUsers();
+  } catch (err) {
+    console.error("[AUTH] SEED FAILED:", err);
+  }
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
