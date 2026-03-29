@@ -101,7 +101,7 @@ export default function IdeasDashboard() {
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
 
-  const isDev = user?.role === "developer";
+  const isDev = user?.role === "developer" || user?.role === "admin";
   const userEmail = user?.email || "";
   const userName = user?.username || "Unknown";
 
@@ -299,11 +299,13 @@ export default function IdeasDashboard() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${
-            isDev ? "bg-purple-500/10 text-purple-600" : "bg-blue-500/10 text-blue-600"
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium capitalize ${
+            user?.role === "developer" ? "bg-purple-500/10 text-purple-600"
+            : user?.role === "admin" ? "bg-teal-500/10 text-teal-600"
+            : "bg-blue-500/10 text-blue-600"
           }`}>
             {isDev ? <Shield className="w-3.5 h-3.5" /> : <User className="w-3.5 h-3.5" />}
-            {isDev ? "Developer" : "Stakeholder"}
+            {user?.role || "Stakeholder"}
           </div>
         </div>
       </div>

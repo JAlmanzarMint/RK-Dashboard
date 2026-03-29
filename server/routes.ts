@@ -316,6 +316,37 @@ export async function registerRoutes(
     }
   });
 
+  // ── POST /api/auth/change-password ──────────────────
+  app.post("/api/auth/change-password", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { currentPassword, newPassword } = req.body;
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ message: "Current password and new password are required" });
+      }
+
+      const validation = registerSchema.shape.password.safeParse(newPassword);
+      if (!validation.success) {
+        return res.status(400).json({ message: validation.error.errors[0].message });
+      }
+
+      const user = await storage.getUser(req.session.userId!);
+      if (!user) return res.status(401).json({ message: "Not authenticated" });
+
+      const valid = await verifyPassword(currentPassword, user.password);
+      if (!valid) {
+        return res.status(401).json({ message: "Current password is incorrect" });
+      }
+
+      const hashedPassword = await hashPassword(newPassword);
+      await storage.updateUser(user.id, { password: hashedPassword });
+
+      res.json({ message: "Password changed successfully" });
+    } catch (err: any) {
+      console.error("Change password error:", err);
+      res.status(500).json({ message: "Password change failed" });
+    }
+  });
+
   // ================================================================
   // PROTECTED ROUTES (require auth)
   // ================================================================

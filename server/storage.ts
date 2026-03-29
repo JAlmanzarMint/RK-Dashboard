@@ -1,5 +1,6 @@
 import { type User, type InsertUser } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { hashPassword } from "./auth";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -77,3 +78,43 @@ export class MemStorage implements IStorage {
 }
 
 export const storage = new MemStorage();
+
+// ── Seed users ────────────────────────────────────────
+const SEED_USERS = [
+  { username: "Jonathan Almanzar", email: "jonathan@mintrx.com", role: "developer" },
+  { username: "Joe Maclean",       email: "joe@aoicapital.com", role: "admin" },
+  { username: "Taylor",            email: "taylor@medmetricsrx.com", role: "admin" },
+  { username: "James Bryant",      email: "james.bryant@rklogisticsgroup.com", role: "admin" },
+  { username: "David Blandford",   email: "david.blandford@rklogisticsgroup.com", role: "admin" },
+  { username: "William Simpson",   email: "william.simpson@rklogisticsgroup.com", role: "admin" },
+  { username: "Matthew Beckert",   email: "matthew.beckert@rklogisticsgroup.com", role: "admin" },
+];
+
+export async function seedUsers() {
+  const tempPassword = process.env.SEED_PASSWORD || "RKLogistics2026!";
+  const hashed = await hashPassword(tempPassword);
+  let created = 0;
+
+  for (const seed of SEED_USERS) {
+    const existing = await storage.getUserByEmail(seed.email);
+    if (!existing) {
+      await storage.createUser({
+        username: seed.username,
+        email: seed.email,
+        password: hashed,
+        role: seed.role,
+        emailVerifyToken: null,
+        emailVerifyExpires: null,
+      });
+      // Mark as verified so they can log in immediately
+      const user = await storage.getUserByEmail(seed.email);
+      if (user) await storage.updateUser(user.id, { emailVerified: true });
+      created++;
+    }
+  }
+
+  if (created > 0) {
+    console.log(`[AUTH] Seeded ${created} users (temp password: ${tempPassword})`);
+    console.log("[AUTH] Users should change their password after first login");
+  }
+}
