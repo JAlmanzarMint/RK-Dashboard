@@ -89,11 +89,8 @@ app.use("/api/ideas/cursor-prompt", aiLimiter);
 // ── Write endpoints: 30 req/15min per IP ────────────────
 const writeLimiter = rateLimitWithLog({ windowMs: 15 * 60_000, max: 30, message: { message: "Too many write operations. Please slow down." } }, "write-ideas");
 app.post("/api/ideas", writeLimiter);
-app.patch("/api/ideas/*", writeLimiter);
-app.delete("/api/ideas/*", writeLimiter);
-
-// ── Per-user session rate limit (40 req/min) ────────────
-app.use("/api", perUserRateLimit(40));
+app.patch("/api/ideas/{*path}", writeLimiter);
+app.delete("/api/ideas/{*path}", writeLimiter);
 
 // ── Body parsing ───────────────────────────────────────
 app.use(
@@ -116,6 +113,10 @@ app.use(
     store: new SessionStore({ checkPeriod: 86400000 }), // prune expired every 24h
   })
 );
+
+// ── Per-user session rate limit (40 req/min) ────────────
+// Must be after session middleware so req.session.userId is available
+app.use("/api", perUserRateLimit(40));
 
 // ── Request logging (API only) ─────────────────────────
 export function log(message: string, source = "express") {

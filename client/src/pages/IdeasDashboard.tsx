@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import {
-  Mic, MicOff, Square, Loader2, Sparkles, Copy, Check, Send,
+  Mic, Square, Loader2, Sparkles, Copy, Check, Send,
   AlertTriangle, ChevronRight, Lightbulb, Code2, MessageSquare,
   ArrowRight, Clock, CheckCircle2, XCircle, RotateCcw,
   LayoutList, Inbox, User, Shield, Trash2, Pencil, Save
@@ -13,8 +13,6 @@ import { Badge } from "@/components/ui/badge";
 type IdeaStatus = "review" | "approved" | "dev" | "needs_feedback" | "completed" | "rejected";
 type WorkflowStage = "idle" | "recording" | "transcribing" | "refining" | "done";
 type ViewTab = "pipeline" | "devbucket";
-type Role = "stakeholder" | "developer";
-
 interface RefinedIdea {
   title: string;
   summary: string;
@@ -870,17 +868,13 @@ export default function IdeasDashboard() {
 
                 {/* Action buttons */}
                 <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-border">
-                  {/* STAKEHOLDER actions */}
+                  {/* STAKEHOLDER actions (non-admin, non-developer) */}
                   {!isDev && (
                     <>
                       {selected.status === "review" && (
-                        <button
-                          onClick={() => approveToDevBucket(selected.id)}
-                          className="flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium bg-green-600 text-white hover:bg-green-700 transition-colors"
-                        >
-                          <CheckCircle2 className="w-4 h-4" />
-                          Approve & Send to Dev Bucket
-                        </button>
+                        <p className="text-sm text-muted-foreground italic">
+                          Awaiting admin or developer review
+                        </p>
                       )}
                       {selected.status === "needs_feedback" && selected.submittedByEmail === userEmail && (
                         <button

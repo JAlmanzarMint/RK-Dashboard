@@ -8,7 +8,7 @@ import {
 } from "./auth";
 import { securityLog } from "./security-logger";
 import {
-  registerSchema, loginSchema, tokenSchema, emailOnlySchema,
+  loginSchema, tokenSchema, emailOnlySchema,
   resetPasswordSchema, changePasswordSchema, transcriptSchema,
   createIdeaSchema, updateIdeaSchema, cursorPromptInputSchema, uuidParam,
 } from "@shared/schema";
@@ -599,13 +599,13 @@ ${idea.requirements.map((r: string, i: number) => `${i + 1}. ${r}`).join("\n")}`
       securityLog("FORBIDDEN", req, { userId: reqUser.id, detail: "non-developer tried to set dev notes" });
       return res.status(403).json({ message: "Only developers can set developer notes" });
     }
+    if (feedbackNote !== undefined && role !== "developer") {
+      return res.status(403).json({ message: "Only developers can set feedback notes" });
+    }
+
+    const previousStatus = idea.status;
 
     if (status !== undefined) {
-      const VALID_STATUSES: IdeaStatus[] = ["review", "approved", "dev", "needs_feedback", "completed", "rejected"];
-      if (!VALID_STATUSES.includes(status)) {
-        return res.status(400).json({ message: "Invalid status" });
-      }
-
       // Developer-only transitions
       if (["needs_feedback", "completed"].includes(status) && role !== "developer") {
         return res.status(403).json({ message: "Only developers can perform this action" });
@@ -616,9 +616,12 @@ ${idea.requirements.map((r: string, i: number) => `${i + 1}. ${r}`).join("\n")}`
         return res.status(403).json({ message: "Insufficient permissions" });
       }
 
-      // Resubmit (review): only the original submitter when idea is in needs_feedback
-      if (status === "review" && idea.status === "needs_feedback") {
-        if (!isSubmitter && role !== "developer") {
+      // Resubmit to review: only allowed from needs_feedback, by submitter or developer
+      if (status === "review") {
+        if (previousStatus !== "needs_feedback" && role !== "developer") {
+          return res.status(403).json({ message: "Insufficient permissions" });
+        }
+        if (previousStatus === "needs_feedback" && !isSubmitter && role !== "developer") {
           return res.status(403).json({ message: "Only the original submitter can resubmit this idea" });
         }
       }
@@ -626,9 +629,9 @@ ${idea.requirements.map((r: string, i: number) => `${i + 1}. ${r}`).join("\n")}`
       idea.status = status;
     }
 
-    // Refined content edits: only submitter when sent back, or developer
+    // Refined edits: check against previousStatus (before mutation) so resubmit + edit works
     if (refined !== undefined) {
-      if (role === "developer" || (isSubmitter && idea.status === "needs_feedback")) {
+      if (role === "developer" || (isSubmitter && previousStatus === "needs_feedback")) {
         idea.refined = refined;
       } else {
         return res.status(403).json({ message: "You can only edit ideas sent back to you for feedback" });
@@ -636,7 +639,7 @@ ${idea.requirements.map((r: string, i: number) => `${i + 1}. ${r}`).join("\n")}`
     }
 
     if (ceoNotes !== undefined) idea.ceoNotes = ceoNotes;
-    if (feedbackNote !== undefined && role === "developer") idea.feedbackNote = feedbackNote;
+    if (feedbackNote !== undefined) idea.feedbackNote = feedbackNote;
     if (cursorPrompt !== undefined) idea.cursorPrompt = cursorPrompt;
     if (devNotes !== undefined) idea.devNotes = devNotes;
     idea.updatedAt = new Date().toISOString();

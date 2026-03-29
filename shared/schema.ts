@@ -46,9 +46,6 @@ export const registerSchema = z.object({
 const safeText = (maxLen: number) =>
   z.string().max(maxLen).transform((s) => s.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "").replace(/<[^>]*>/g, "").trim());
 
-const safeTextOptional = (maxLen: number) =>
-  z.string().max(maxLen).transform((s) => s.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "").replace(/<[^>]*>/g, "").trim()).optional();
-
 // ── Token schemas ────────────────────────────────────────
 export const tokenSchema = z.object({
   token: z.string().min(1).max(256).regex(/^[a-f0-9]+$/i, "Invalid token format"),
@@ -89,7 +86,7 @@ export const transcriptSchema = z.object({
 });
 
 export const createIdeaSchema = z.object({
-  rawTranscript: z.string().max(50000).optional().default(""),
+  rawTranscript: safeText(50000).optional().default(""),
   refined: refinedIdeaSchema.nullable().optional().default(null),
   ceoNotes: safeText(5000).optional().default(""),
 });

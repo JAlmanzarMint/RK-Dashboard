@@ -244,7 +244,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <h1 className="text-sm font-semibold">
                   {sections.flatMap((s) => s.items).find((i) => i.path === location)?.label || "Dashboard"}
                 </h1>
-                <p className="text-[11px] text-muted-foreground">Monday, March 16, 2026</p>
+                <p className="text-[11px] text-muted-foreground">{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
