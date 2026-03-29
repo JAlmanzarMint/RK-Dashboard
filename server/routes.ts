@@ -1,6 +1,12 @@
 import type { Express, Request, Response } from "express";
-import { createServer, type Server } from "http";
+import { type Server } from "http";
 import { storage } from "./storage";
+import {
+  hashPassword, verifyPassword, generateToken, hashToken, sanitizeUser,
+  checkRateLimit, recordFailedAttempt, clearAttempts, requireAuth,
+  VERIFY_TOKEN_EXPIRY_MS, RESET_TOKEN_EXPIRY_MS,
+} from "./auth";
+import { registerSchema, loginSchema } from "@shared/schema";
 import multer from "multer";
 import OpenAI, { toFile } from "openai";
 import { randomUUID } from "crypto";
@@ -19,13 +25,7 @@ function getOpenAI() {
 }
 
 // ── Idea types ────────────────────────────────────────
-export type IdeaStatus =
-  | "review"
-  | "approved"
-  | "dev"
-  | "needs_feedback"
-  | "completed"
-  | "rejected";
+export type IdeaStatus = "review" | "approved" | "dev" | "needs_feedback" | "completed" | "rejected";
 
 export interface RefinedIdea {
   title: string;
@@ -79,8 +79,249 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
 
+  // ================================================================
+  // AUTH ROUTES (public — no requireAuth)
+  // ================================================================
+
+  // ── POST /api/auth/register ─────────────────────────
+  app.post("/api/auth/register", async (req: Request, res: Response) => {
+    try {
+      const parsed = registerSchema.safeParse(req.body);
+      if (!parsed.success) {
+        const errors = parsed.error.errors.map((e) => e.message);
+        return res.status(400).json({ message: errors.join(". ") });
+      }
+
+      const { username, email, password } = parsed.data;
+
+      const existingEmail = await storage.getUserByEmail(email);
+      if (existingEmail) {
+        return res.status(409).json({ message: "An account with this email already exists" });
+      }
+      const existingUsername = await storage.getUserByUsername(username);
+      if (existingUsername) {
+        return res.status(409).json({ message: "This username is already taken" });
+      }
+
+      const hashedPassword = await hashPassword(password);
+      const verifyToken = generateToken();
+      const verifyTokenHash = hashToken(verifyToken);
+
+      const user = await storage.createUser({
+        username,
+        email: email.toLowerCase(),
+        password: hashedPassword,
+        emailVerifyToken: verifyTokenHash,
+        emailVerifyExpires: new Date(Date.now() + VERIFY_TOKEN_EXPIRY_MS),
+      });
+
+      // In production, send verification email here with verifyToken
+      // For now, auto-verify to allow immediate login
+      await storage.updateUser(user.id, { emailVerified: true, emailVerifyToken: null, emailVerifyExpires: null });
+      const updated = await storage.getUser(user.id);
+
+      req.session.userId = user.id;
+      res.status(201).json({ user: sanitizeUser(updated || user) });
+    } catch (err: any) {
+      console.error("Register error:", err);
+      res.status(500).json({ message: "Registration failed" });
+    }
+  });
+
+  // ── POST /api/auth/login ───────────────────────────
+  app.post("/api/auth/login", async (req: Request, res: Response) => {
+    try {
+      const parsed = loginSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid email or password" });
+      }
+
+      const { email, password } = parsed.data;
+      const rateLimitKey = email.toLowerCase();
+
+      // Rate-limit check
+      const limit = checkRateLimit(rateLimitKey);
+      if (!limit.allowed) {
+        const minutes = Math.ceil(limit.retryAfterMs / 60000);
+        return res.status(429).json({
+          message: `Too many login attempts. Try again in ${minutes} minute${minutes > 1 ? "s" : ""}.`,
+        });
+      }
+
+      const user = await storage.getUserByEmail(email.toLowerCase());
+
+      // Constant-time-ish response for invalid email to prevent enumeration
+      if (!user) {
+        recordFailedAttempt(rateLimitKey);
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      // Check account lock
+      if (user.lockUntil && new Date(user.lockUntil) > new Date()) {
+        return res.status(423).json({ message: "Account temporarily locked. Try again later." });
+      }
+
+      const valid = await verifyPassword(password, user.password);
+      if (!valid) {
+        recordFailedAttempt(rateLimitKey);
+        const newAttempts = (user.failedLoginAttempts || 0) + 1;
+        const updates: any = { failedLoginAttempts: newAttempts };
+        if (newAttempts >= 5) {
+          updates.lockUntil = new Date(Date.now() + 15 * 60 * 1000);
+        }
+        await storage.updateUser(user.id, updates);
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      if (!user.emailVerified) {
+        return res.status(403).json({ message: "Please verify your email before logging in" });
+      }
+
+      // Reset failed attempts on success
+      clearAttempts(rateLimitKey);
+      await storage.updateUser(user.id, { failedLoginAttempts: 0, lockUntil: null });
+
+      // Regenerate session to prevent fixation
+      req.session.regenerate((err) => {
+        if (err) {
+          console.error("Session regeneration error:", err);
+          return res.status(500).json({ message: "Login failed" });
+        }
+        req.session.userId = user.id;
+        res.json({ user: sanitizeUser(user) });
+      });
+    } catch (err: any) {
+      console.error("Login error:", err);
+      res.status(500).json({ message: "Login failed" });
+    }
+  });
+
+  // ── POST /api/auth/logout ──────────────────────────
+  app.post("/api/auth/logout", (req: Request, res: Response) => {
+    req.session.destroy((err) => {
+      if (err) {
+        console.error("Logout error:", err);
+        return res.status(500).json({ message: "Logout failed" });
+      }
+      res.clearCookie("rk.sid");
+      res.json({ message: "Logged out" });
+    });
+  });
+
+  // ── GET /api/auth/me ───────────────────────────────
+  app.get("/api/auth/me", async (req: Request, res: Response) => {
+    if (!req.session?.userId) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    const user = await storage.getUser(req.session.userId);
+    if (!user) {
+      req.session.destroy(() => {});
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    res.json({ user: sanitizeUser(user) });
+  });
+
+  // ── POST /api/auth/verify-email ────────────────────
+  app.post("/api/auth/verify-email", async (req: Request, res: Response) => {
+    try {
+      const { token } = req.body;
+      if (!token) return res.status(400).json({ message: "Token required" });
+
+      const tokenHash = hashToken(token);
+      const user = await storage.getUserByVerifyToken(tokenHash);
+
+      if (!user) {
+        return res.status(400).json({ message: "Invalid or expired verification token" });
+      }
+      if (user.emailVerifyExpires && new Date(user.emailVerifyExpires) < new Date()) {
+        return res.status(400).json({ message: "Verification token has expired" });
+      }
+
+      await storage.updateUser(user.id, {
+        emailVerified: true,
+        emailVerifyToken: null,
+        emailVerifyExpires: null,
+      });
+
+      res.json({ message: "Email verified successfully" });
+    } catch (err: any) {
+      console.error("Verify error:", err);
+      res.status(500).json({ message: "Verification failed" });
+    }
+  });
+
+  // ── POST /api/auth/forgot-password ─────────────────
+  app.post("/api/auth/forgot-password", async (req: Request, res: Response) => {
+    try {
+      const { email } = req.body;
+      // Always return success to prevent email enumeration
+      if (!email) return res.json({ message: "If that email exists, a reset link has been sent." });
+
+      const user = await storage.getUserByEmail(email.toLowerCase());
+      if (user) {
+        const resetToken = generateToken();
+        const resetTokenHash = hashToken(resetToken);
+        await storage.updateUser(user.id, {
+          resetToken: resetTokenHash,
+          resetTokenExpires: new Date(Date.now() + RESET_TOKEN_EXPIRY_MS),
+        });
+        // In production: send email with resetToken
+        console.log(`[AUTH] Password reset token for ${email}: ${resetToken}`);
+      }
+
+      res.json({ message: "If that email exists, a reset link has been sent." });
+    } catch (err: any) {
+      console.error("Forgot password error:", err);
+      res.json({ message: "If that email exists, a reset link has been sent." });
+    }
+  });
+
+  // ── POST /api/auth/reset-password ──────────────────
+  app.post("/api/auth/reset-password", async (req: Request, res: Response) => {
+    try {
+      const { token, password } = req.body;
+      if (!token || !password) {
+        return res.status(400).json({ message: "Token and new password are required" });
+      }
+
+      const validation = registerSchema.shape.password.safeParse(password);
+      if (!validation.success) {
+        return res.status(400).json({ message: validation.error.errors[0].message });
+      }
+
+      const tokenHash = hashToken(token);
+      const user = await storage.getUserByResetToken(tokenHash);
+
+      if (!user) {
+        return res.status(400).json({ message: "Invalid or expired reset token" });
+      }
+      if (user.resetTokenExpires && new Date(user.resetTokenExpires) < new Date()) {
+        await storage.updateUser(user.id, { resetToken: null, resetTokenExpires: null });
+        return res.status(400).json({ message: "Reset token has expired" });
+      }
+
+      const hashedPassword = await hashPassword(password);
+      await storage.updateUser(user.id, {
+        password: hashedPassword,
+        resetToken: null,
+        resetTokenExpires: null,
+        failedLoginAttempts: 0,
+        lockUntil: null,
+      });
+
+      res.json({ message: "Password reset successfully" });
+    } catch (err: any) {
+      console.error("Reset password error:", err);
+      res.status(500).json({ message: "Password reset failed" });
+    }
+  });
+
+  // ================================================================
+  // PROTECTED ROUTES (require auth)
+  // ================================================================
+
   // ── POST /api/transcribe ──────────────────────────
-  app.post("/api/transcribe", upload.single("audio"), async (req: Request, res: Response) => {
+  app.post("/api/transcribe", requireAuth, upload.single("audio"), async (req: Request, res: Response) => {
     try {
       if (!req.file) return res.status(400).json({ message: "No audio file provided" });
 
@@ -106,7 +347,7 @@ export async function registerRoutes(
   });
 
   // ── POST /api/ideas/generate ──────────────────────
-  app.post("/api/ideas/generate", async (req: Request, res: Response) => {
+  app.post("/api/ideas/generate", requireAuth, async (req: Request, res: Response) => {
     try {
       const { transcript } = req.body;
       if (!transcript) return res.status(400).json({ message: "No transcript provided" });
@@ -173,7 +414,7 @@ Return ONLY valid JSON. No markdown, no code blocks, just the JSON object.`
   });
 
   // ── POST /api/ideas/cursor-prompt ─────────────────
-  app.post("/api/ideas/cursor-prompt", async (req: Request, res: Response) => {
+  app.post("/api/ideas/cursor-prompt", requireAuth, async (req: Request, res: Response) => {
     try {
       const { idea } = req.body;
       if (!idea) return res.status(400).json({ message: "No idea provided" });
@@ -256,8 +497,9 @@ ${(idea.requirements || []).map((r: string, i: number) => `${i + 1}. ${r}`).join
   });
 
   // ── POST /api/ideas ─────────────────────────────────
-  app.post("/api/ideas", (req: Request, res: Response) => {
-    const { rawTranscript, refined, ceoNotes, submittedBy, submittedByEmail, status } = req.body;
+  app.post("/api/ideas", requireAuth, async (req: Request, res: Response) => {
+    const user = await storage.getUser(req.session.userId!);
+    const { rawTranscript, refined, ceoNotes, status } = req.body;
 
     const idea: Idea = {
       id: randomUUID(),
@@ -265,8 +507,8 @@ ${(idea.requirements || []).map((r: string, i: number) => `${i + 1}. ${r}`).join
       refined: refined || null,
       cursorPrompt: null,
       status: status || "review",
-      submittedBy: submittedBy || "Unknown",
-      submittedByEmail: submittedByEmail || "",
+      submittedBy: user?.username || "Unknown",
+      submittedByEmail: user?.email || "",
       feedbackNote: null,
       ceoNotes: ceoNotes || "",
       devNotes: "",
@@ -279,7 +521,7 @@ ${(idea.requirements || []).map((r: string, i: number) => `${i + 1}. ${r}`).join
   });
 
   // ── GET /api/ideas ──────────────────────────────────
-  app.get("/api/ideas", (_req: Request, res: Response) => {
+  app.get("/api/ideas", requireAuth, (_req: Request, res: Response) => {
     const all = Array.from(ideas.values()).sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
@@ -287,14 +529,14 @@ ${(idea.requirements || []).map((r: string, i: number) => `${i + 1}. ${r}`).join
   });
 
   // ── GET /api/ideas/:id ──────────────────────────────
-  app.get("/api/ideas/:id", (req: Request, res: Response) => {
+  app.get("/api/ideas/:id", requireAuth, (req: Request, res: Response) => {
     const idea = ideas.get(req.params.id);
     if (!idea) return res.status(404).json({ message: "Idea not found" });
     res.json(idea);
   });
 
   // ── PATCH /api/ideas/:id ────────────────────────────
-  app.patch("/api/ideas/:id", (req: Request, res: Response) => {
+  app.patch("/api/ideas/:id", requireAuth, (req: Request, res: Response) => {
     const idea = ideas.get(req.params.id);
     if (!idea) return res.status(404).json({ message: "Idea not found" });
 
@@ -312,7 +554,7 @@ ${(idea.requirements || []).map((r: string, i: number) => `${i + 1}. ${r}`).join
   });
 
   // ── DELETE /api/ideas/:id ───────────────────────────
-  app.delete("/api/ideas/:id", (req: Request, res: Response) => {
+  app.delete("/api/ideas/:id", requireAuth, (req: Request, res: Response) => {
     if (!ideas.has(req.params.id)) return res.status(404).json({ message: "Idea not found" });
     ideas.delete(req.params.id);
     res.json({ message: "Deleted" });

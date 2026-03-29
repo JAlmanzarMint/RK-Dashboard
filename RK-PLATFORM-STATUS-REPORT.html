@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>RK Dashboard — Platform Status Report</title>
+<style>
+  @page { margin: 0.6in; size: A4; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; line-height: 1.6; color: #1a1a2e; background: #fff; }
+  .page-break { page-break-before: always; }
+
+  .header { background: linear-gradient(135deg, #0d9488 0%, #065f56 100%); color: white; padding: 32px; border-radius: 8px; margin-bottom: 24px; }
+  .header h1 { font-size: 24px; margin-bottom: 4px; font-weight: 700; }
+  .header .subtitle { font-size: 14px; opacity: 0.9; }
+  .header .date { font-size: 10px; opacity: 0.7; margin-top: 8px; }
+  .header .badge { display: inline-block; background: rgba(255,255,255,0.2); padding: 2px 10px; border-radius: 12px; font-size: 10px; margin-right: 6px; margin-top: 10px; }
+
+  h2 { font-size: 16px; color: #0d9488; border-bottom: 2px solid #0d9488; padding-bottom: 4px; margin: 22px 0 12px; }
+  h3 { font-size: 13px; color: #1a1a2e; margin: 14px 0 8px; }
+  h4 { font-size: 11px; color: #555; margin: 10px 0 6px; font-weight: 600; }
+
+  .card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px; margin-bottom: 10px; background: #fafafa; }
+  .card-teal { border-left: 3px solid #0d9488; }
+  .card-green { border-left: 3px solid #059669; background: #f0fdf4; }
+  .card-red { border-left: 3px solid #dc2626; background: #fef2f2; }
+  .card-amber { border-left: 3px solid #d97706; background: #fffbeb; }
+  .card-blue { border-left: 3px solid #2563eb; background: #eff6ff; }
+  .card-purple { border-left: 3px solid #7c3aed; background: #f5f3ff; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; }
+
+  table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 10px; }
+  th { background: #f3f4f6; padding: 6px 8px; text-align: left; font-weight: 600; border-bottom: 2px solid #d1d5db; }
+  td { padding: 6px 8px; border-bottom: 1px solid #e5e7eb; }
+  tr:nth-child(even) { background: #f9fafb; }
+
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 9px; font-weight: 600; }
+  .badge-teal { background: #ccfbf1; color: #0d9488; }
+  .badge-green { background: #d1fae5; color: #059669; }
+  .badge-red { background: #fee2e2; color: #dc2626; }
+  .badge-amber { background: #fef3c7; color: #d97706; }
+  .badge-blue { background: #dbeafe; color: #2563eb; }
+  .badge-purple { background: #ede9fe; color: #7c3aed; }
+  .badge-gray { background: #f3f4f6; color: #6b7280; }
+
+  .kpi { text-align: center; padding: 12px; border-radius: 6px; border: 1px solid #e5e7eb; background: white; }
+  .kpi-value { font-size: 22px; font-weight: 800; color: #0d9488; }
+  .kpi-label { font-size: 9px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+  .kpi-sub { font-size: 9px; color: #0d9488; margin-top: 2px; }
+
+  .timeline { position: relative; padding-left: 24px; }
+  .timeline::before { content: ''; position: absolute; left: 8px; top: 0; bottom: 0; width: 2px; background: #0d9488; }
+  .timeline-item { position: relative; margin-bottom: 14px; }
+  .timeline-item::before { content: ''; position: absolute; left: -20px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background: #0d9488; border: 2px solid white; }
+  .timeline-done::before { background: #059669; }
+  .timeline-next::before { background: #d97706; border: 2px solid #fef3c7; }
+  .timeline-phase { font-weight: 700; color: #0d9488; font-size: 11px; }
+  .timeline-done .timeline-phase { color: #059669; }
+  .timeline-next .timeline-phase { color: #d97706; }
+
+  .callout { background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 8px; padding: 16px; margin: 12px 0; }
+  .callout-title { font-weight: 700; font-size: 12px; color: #0d9488; margin-bottom: 6px; }
+
+  .step-num { display: inline-flex; width: 22px; height: 22px; border-radius: 50%; background: #0d9488; color: white; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; margin-right: 8px; vertical-align: middle; }
+
+  ul { margin: 4px 0; padding-left: 16px; }
+  li { margin-bottom: 3px; }
+  p { margin-bottom: 6px; }
+  .text-muted { color: #6b7280; }
+  .text-green { color: #059669; }
+  .text-teal { color: #0d9488; }
+  .text-bold { font-weight: 700; }
+  .mb-4 { margin-bottom: 16px; }
+  .mb-2 { margin-bottom: 8px; }
+  .mt-2 { margin-top: 8px; }
+  .check { color: #059669; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- COVER -->
+<!-- ════════════════════════════════════════════ -->
+
+<div class="header">
+  <h1>RK Logistics CEO Dashboard</h1>
+  <p class="subtitle">Platform Status Report &amp; Next Steps</p>
+  <p class="date">March 27, 2026</p>
+  <div>
+    <span class="badge">Live on Railway</span>
+    <span class="badge">26 Pages</span>
+    <span class="badge">Voice-to-Idea Active</span>
+    <span class="badge">OpenAI Whisper + GPT Integrated</span>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 1. PLATFORM STATUS AT A GLANCE -->
+<!-- ════════════════════════════════════════════ -->
+
+<h2>1. Platform Status at a Glance</h2>
+
+<div class="grid-4 mb-4">
+  <div class="kpi"><div class="kpi-value">26</div><div class="kpi-label">Dashboard Pages</div></div>
+  <div class="kpi"><div class="kpi-value">6</div><div class="kpi-label">Live API Endpoints</div></div>
+  <div class="kpi"><div class="kpi-value">2</div><div class="kpi-label">AI Integrations</div><div class="kpi-sub">Whisper + GPT-4o</div></div>
+  <div class="kpi"><div class="kpi-value">8</div><div class="kpi-label">Commits Deployed</div></div>
+</div>
+
+<div class="grid-2 mb-4">
+  <div class="card card-teal">
+    <h4 style="margin-top:0;">Live URLs</h4>
+    <p><strong>Production:</strong> https://rk-dashboard-production.up.railway.app</p>
+    <p><strong>GitHub:</strong> https://github.com/JAlmanzarMint/RK-Dashboard</p>
+    <p><strong>Railway Project:</strong> https://railway.com/project/2645c647-e681-47a3-ac26-1685b5f8f70a</p>
+  </div>
+  <div class="card card-green">
+    <h4 style="margin-top:0;">Tech Stack</h4>
+    <p><strong>Frontend:</strong> React 18 + Vite + Tailwind CSS 3 + shadcn/ui + Recharts + Leaflet</p>
+    <p><strong>Backend:</strong> Express 5 + OpenAI SDK + Multer</p>
+    <p><strong>AI:</strong> OpenAI Whisper (transcription) + GPT-4o-mini (idea optimization)</p>
+    <p><strong>Hosting:</strong> Railway (Nixpacks build)</p>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 2. WHAT HAS BEEN BUILT -->
+<!-- ════════════════════════════════════════════ -->
+
+<h2>2. What Has Been Built</h2>
+
+<h3>A. Original 22-Page Dashboard (Inherited)</h3>
+<p class="text-muted mb-2">Complete CEO dashboard with rich mock data, two working pricing engines, and full operational coverage.</p>
+
+<table>
+  <tr><th>Section</th><th>Pages</th><th>Key Features</th></tr>
+  <tr><td><strong>Core</strong></td><td>Dashboard, Goals, Business Development, Customers</td><td>Executive KPIs, pipeline funnel, Big 9 tracking, customer rankings</td></tr>
+  <tr><td><strong>Operations</strong></td><td>Facilities, Facility Pricing, Facility Profile, Bench Strength, OTT Carriers, OTT Pricing, Route Optimizer, Utilization AI</td><td>12-facility map, warehouse rate card engine, LTL quote calculator, fleet management, AI utilization mock</td></tr>
+  <tr><td><strong>Finance</strong></td><td>Financials, Liquidity</td><td>LBO model, pro forma acquisition calculator, forecast updater, cash position</td></tr>
+  <tr><td><strong>People</strong></td><td>Email Pulse, Recruiting</td><td>Email volume/sentiment analytics, recruiting pipeline</td></tr>
+  <tr><td><strong>Strategy</strong></td><td>Market Intel, Technology, Marketing, Strategy Hub, Strategy Simulation</td><td>Competitor intel, content engine, synthetic audience testing, MiroFish simulation</td></tr>
+</table>
+
+<h3>B. New Features Added (This Engagement)</h3>
+
+<div class="card card-teal mb-2">
+  <h4 style="margin-top:0;"><span class="check">LIVE</span> &mdash; CEO Dashboard Enhancements</h4>
+  <p><strong>Pending Approvals Widget:</strong> 5-item approval queue with in-guideline/out-of-guideline status, urgency indicators, and Approve/Review buttons. Check runs and quotes visible in one place.</p>
+  <p><strong>Escalation Tracker:</strong> Contract escalation alerts with revenue impact ($382.4K total), overdue items flagged in red (Netflix March 1), upcoming escalations with 60-day lookahead.</p>
+</div>
+
+<div class="card card-teal mb-2">
+  <h4 style="margin-top:0;"><span class="check">LIVE</span> &mdash; Voice-to-Idea Workflow (AI-Powered)</h4>
+  <p><strong>Voice Capture page</strong> (<code>/#/voice-capture</code>): Mic recording, OpenAI Whisper transcription, GPT-4o-mini idea optimization, CEO notes, approve/draft/discard actions. Joe's recent ideas shown alongside.</p>
+  <p><strong>Dev Bucket page</strong> (<code>/#/dev-bucket</code>): Idea cards with status tracking (Approved / In Progress / Completed), dev notes back to CEO, 30-second auto-refresh, filter by status.</p>
+  <p><strong>Backend API:</strong> 6 endpoints &mdash; POST /api/transcribe, POST /api/optimize-idea, GET/POST/PATCH/DELETE /api/ideas</p>
+</div>
+
+<div class="card card-teal mb-2">
+  <h4 style="margin-top:0;"><span class="check">LIVE</span> &mdash; Roadmap Audience Testing</h4>
+  <p><strong>Roadmap Testing page</strong> (<code>/#/roadmap-testing</code>): 8 synthetic stakeholder personas, 14 initiatives scored across Impact/Urgency/Feasibility/Adoption, 38 reviews, 4 priority upgrades, revised 5-phase build roadmap.</p>
+</div>
+
+<div class="card card-teal mb-2">
+  <h4 style="margin-top:0;"><span class="check">LIVE</span> &mdash; Pipeline Page + Navigation Fixes</h4>
+  <p>Pipeline page wired into router (was orphaned). Sidebar navigation updated with Pipeline, Roadmap Testing, Voice to Idea, and Dev Bucket entries.</p>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 3. COMPLETE PAGE INVENTORY -->
+<!-- ════════════════════════════════════════════ -->
+
+<div class="page-break"></div>
+<h2>3. Complete Page Inventory (26 Pages)</h2>
+
+<table>
+  <tr><th>#</th><th>Route</th><th>Page</th><th>Status</th><th>Data Source</th></tr>
+  <tr><td>1</td><td><code>/#/</code></td><td>Dashboard (with Approvals + Escalations)</td><td><span class="badge badge-green">Enhanced</span></td><td>Static + mock widgets</td></tr>
+  <tr><td>2</td><td><code>/#/goals</code></td><td>Goals</td><td><span class="badge badge-gray">Original</span></td><td>Static</td></tr>
+  <tr><td>3</td><td><code>/#/business-development</code></td><td>Business Development + Competitor Intel</td><td><span class="badge badge-gray">Original</span></td><td>Static</td></tr>
+  <tr><td>4</td><td><code>/#/customers</code></td><td>Customers</td><td><span class="badge badge-gray">Original</span></td><td>Static</td></tr>
+  <tr><td>5</td><td><code>/#/facilities</code></td><td>Facilities</td><td><span class="badge badge-gray">Original</span></td><td>Static</td></tr>
+  <tr><td>6</td><td><code>/#/facility-pricing</code></td><td>Facility Pricing (rate card engine)</td><td><span class="badge badge-gray">Original</span></td><td>Static + formulas</td></tr>
+  <tr><td>7</td><td><code>/#/facility-profile</code></td><td>Facility Profile (Dock-to-Deal)</td><td><span class="badge badge-gray">Original</span></td><td>Static</td></tr>
+  <tr><td>8</td><td><code>/#/facility-utilization</code></td><td>Utilization AI</td><td><span class="badge badge-gray">Original</span></td><td>Static</td></tr>
+  <tr><td>9</td><td><code>/#/bench-strength</code></td><td>Bench Strength</td><td><span class="badge badge-gray">Original</span></td><td>Static</td></tr>
+  <tr><td>10</td><td><code>/#/ott-carriers</code></td><td>OTT Carriers</td><td><span class="badge badge-gray">Original</span></td><td>Static</td></tr>
+  <tr><td>11</td><td><code>/#/ott-pricing</code></td><td>OTT Pricing (LTL calculator)</td><td><span class="badge badge-gray">Original</span></td><td>Static + formulas</td></tr>
+  <tr><td>12</td><td><code>/#/routing-optimization</code></td><td>Route Optimizer (5 tabs)</td><td><span class="badge badge-gray">Original</span></td><td>Static</td></tr>
+  <tr><td>13</td><td><code>/#/financials</code></td><td>Financials (LBO, Pro Forma, Forecast)</td><td><span class="badge badge-gray">Original</span></td><td>Static + calculators</td></tr>
+  <tr><td>14</td><td><code>/#/liquidity</code></td><td>Liquidity</td><td><span class="badge badge-gray">Original</span></td><td>Static</td></tr>
+  <tr><td>15</td><td><code>/#/email-pulse</code></td><td>Email Pulse</td><td><span class="badge badge-gray">Original</span></td><td>Static</td></tr>
+  <tr><td>16</td><td><code>/#/recruiting</code></td><td>Recruiting</td><td><span class="badge badge-gray">Original</span></td><td>Static</td></tr>
+  <tr><td>17</td><td><code>/#/market-intel</code></td><td>Market Intel</td><td><span class="badge badge-gray">Original</span></td><td>Static</td></tr>
+  <tr><td>18</td><td><code>/#/technology</code></td><td>Technology</td><td><span class="badge badge-gray">Original</span></td><td>Static</td></tr>
+  <tr><td>19</td><td><code>/#/marketing</code></td><td>Marketing (16 sub-tabs)</td><td><span class="badge badge-gray">Original</span></td><td>Static</td></tr>
+  <tr><td>20</td><td><code>/#/strategy</code></td><td>Strategy Hub</td><td><span class="badge badge-gray">Original</span></td><td>Static</td></tr>
+  <tr><td>21</td><td><code>/#/strategy-simulation</code></td><td>Strategy Simulation (MiroFish)</td><td><span class="badge badge-gray">Original</span></td><td>Static</td></tr>
+  <tr><td>22</td><td><code>/#/pipeline</code></td><td>Pipeline</td><td><span class="badge badge-blue">Fixed</span></td><td>Static</td></tr>
+  <tr><td>23</td><td><code>/#/roadmap-testing</code></td><td>Roadmap Audience Testing</td><td><span class="badge badge-green">New</span></td><td>Static (audience data)</td></tr>
+  <tr><td>24</td><td><code>/#/voice-capture</code></td><td>Voice to Idea</td><td><span class="badge badge-green">New</span></td><td>Live API (OpenAI)</td></tr>
+  <tr><td>25</td><td><code>/#/dev-bucket</code></td><td>Dev Bucket</td><td><span class="badge badge-green">New</span></td><td>Live API</td></tr>
+  <tr><td>26</td><td>(catch-all)</td><td>404 Not Found</td><td><span class="badge badge-gray">Original</span></td><td>-</td></tr>
+</table>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 4. COMMIT HISTORY -->
+<!-- ════════════════════════════════════════════ -->
+
+<h2>4. Deployment History</h2>
+
+<table>
+  <tr><th>#</th><th>Commit</th><th>Description</th></tr>
+  <tr><td>1</td><td><code>cb6850b</code></td><td>RK Logistics CEO Dashboard - initial commit (118 files, 31K lines)</td></tr>
+  <tr><td>2</td><td><code>6e3acfc</code></td><td>Add .npmrc with legacy-peer-deps for Railway build compatibility</td></tr>
+  <tr><td>3</td><td><code>df930ad</code></td><td>Add platform optimization roadmap from leadership meeting analysis</td></tr>
+  <tr><td>4</td><td><code>6fda6ee</code></td><td>Add synthetic audience testing, feedback-driven platform changes, and report</td></tr>
+  <tr><td>5</td><td><code>72a0b66</code></td><td>Add Voice-to-Idea workflow with OpenAI Whisper + GPT integration</td></tr>
+  <tr><td>6</td><td><code>db8a323</code></td><td>Fix API routes being intercepted by SPA catch-all in production</td></tr>
+  <tr><td>7</td><td><code>914e8ed</code></td><td>Fix voice transcription: use OpenAI toFile helper and handle non-JSON errors</td></tr>
+  <tr><td>8</td><td><code>b051899</code></td><td>Fix Node 18 File global missing - polyfill for OpenAI Whisper uploads</td></tr>
+</table>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 5. NEXT STEPS — IDEA PIPELINE -->
+<!-- ════════════════════════════════════════════ -->
+
+<div class="page-break"></div>
+<h2>5. Next Steps &mdash; The Idea Pipeline</h2>
+
+<div class="callout">
+  <div class="callout-title">How the Idea Pipeline Works</div>
+  <p style="font-size: 12px; line-height: 1.7;">
+    The Idea Pipeline is a voice-first workflow designed for CEO Joe Maclean and leadership to capture, optimize, and deploy ideas directly into the platform. Here is how it works:
+  </p>
+</div>
+
+<div class="card card-teal mb-2" style="padding: 18px;">
+  <h3 style="margin-top:0; font-size: 14px; color: #0d9488;">Step-by-Step Workflow</h3>
+
+  <div style="margin-top: 12px;">
+    <p><span class="step-num">1</span><strong>Speak Into the Mic</strong></p>
+    <p style="margin-left: 30px; font-size: 11px;">Navigate to the <strong>IDEA</strong> section in the sidebar (<code>/#/voice-capture</code>). Click the mic button and speak your idea naturally. When speaking, <strong>include the following</strong>:</p>
+    <ul style="margin-left: 30px; margin-top: 4px;">
+      <li><strong>Department Name</strong> &mdash; Which department this idea applies to (e.g., "This is for the <em>Operations</em> team" or "This is a <em>Sales &amp; BD</em> feature")</li>
+      <li><strong>Feature Description</strong> &mdash; What you want added and what it should do (e.g., "I want a contract escalation alert that shows me every lease renewal within 60 days")</li>
+      <li><strong>Data Source</strong> &mdash; Where the data is coming from, if applicable (e.g., "The data comes from our <em>Insightly CRM</em>" or "Pull this from the <em>TMS feed</em>" or "This is from our <em>QuickBooks AR aging report</em>")</li>
+    </ul>
+  </div>
+
+  <div style="margin-top: 14px;">
+    <p><span class="step-num">2</span><strong>AI Optimizes Your Notes</strong></p>
+    <p style="margin-left: 30px; font-size: 11px;">Once you stop recording, the platform automatically:</p>
+    <ul style="margin-left: 30px; margin-top: 4px;">
+      <li><strong>Transcribes</strong> your voice using OpenAI Whisper (with RK-specific terminology prompting)</li>
+      <li><strong>Structures</strong> the idea using GPT-4o &mdash; generates a clear title, detailed description, category, estimated business impact, and 3-5 actionable next steps</li>
+      <li>You can <strong>review and edit</strong> any field the AI generated before approving</li>
+    </ul>
+  </div>
+
+  <div style="margin-top: 14px;">
+    <p><span class="step-num">3</span><strong>Add CEO Notes &amp; Approve</strong></p>
+    <p style="margin-left: 30px; font-size: 11px;">Add any additional context, priority notes, or specific instructions in the CEO Notes field. Then choose:</p>
+    <ul style="margin-left: 30px; margin-top: 4px;">
+      <li><strong>"Approve &amp; Send to Dev"</strong> &mdash; The idea is immediately visible in the Dev Bucket</li>
+      <li><strong>"Save as Draft"</strong> &mdash; Saves for later review without sending to the dev team</li>
+      <li><strong>"Discard"</strong> &mdash; Clears the idea entirely</li>
+    </ul>
+  </div>
+
+  <div style="margin-top: 14px;">
+    <p><span class="step-num">4</span><strong>Dev Team Receives the Idea</strong></p>
+    <p style="margin-left: 30px; font-size: 11px;">Approved ideas appear as cards in the <strong>Dev Bucket</strong> (<code>/#/dev-bucket</code>). Each card shows the title, description, category, impact estimate, AI suggestions, and CEO notes. The dev team can:</p>
+    <ul style="margin-left: 30px; margin-top: 4px;">
+      <li><strong>Start Work</strong> &mdash; Move status from "Approved" to "In Progress"</li>
+      <li><strong>Add Dev Notes</strong> &mdash; Write updates, questions, or technical notes back to Joe</li>
+      <li><strong>Mark Complete</strong> &mdash; Signal that the feature has been built and deployed</li>
+      <li><strong>Send Back</strong> &mdash; Return the idea with notes if it needs refinement or isn't feasible</li>
+    </ul>
+  </div>
+
+  <div style="margin-top: 14px;">
+    <p><span class="step-num">5</span><strong>Joe Sees Status Updates</strong></p>
+    <p style="margin-left: 30px; font-size: 11px;">In the Voice to Idea page, Joe's recent ideas panel shows real-time status for every idea he has submitted. When the dev team adds notes or changes status, it is immediately visible. Ideas marked "Completed" confirm the feature is live.</p>
+  </div>
+</div>
+
+<h3>Example Voice Input</h3>
+<div class="card card-blue" style="font-style: italic; font-size: 11px; line-height: 1.8;">
+  <p>"This is for the <strong>Operations</strong> department. I want a feature on the Facilities page that shows every commercial real estate contract per building, with the customer name, the lease start and end date, the rate, and any escalation clauses. When an escalation date is within 30 days, it should flag it red. The data is coming from our <strong>shared drive lease files</strong> and <strong>Susanna's tracking spreadsheets</strong>. This should free up Susanna and Jasmine from manually tracking this stuff every week."</p>
+</div>
+
+<p class="text-muted mt-2" style="font-size: 10px;">This voice input would be transcribed, optimized into a structured feature spec with title, description, category ("Operations"), impact estimate, and next steps &mdash; then sent to the dev team for implementation.</p>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 6. ROADMAP OVERVIEW -->
+<!-- ════════════════════════════════════════════ -->
+
+<h2>6. Revised Platform Roadmap</h2>
+
+<div class="timeline">
+  <div class="timeline-item timeline-done">
+    <div class="timeline-phase">COMPLETED &mdash; Foundation</div>
+    <ul>
+      <li><span class="check">Done</span> &mdash; Full 22-page dashboard deployed to Railway</li>
+      <li><span class="check">Done</span> &mdash; CEO Dashboard enhanced with Approval Queue + Escalation Tracker</li>
+      <li><span class="check">Done</span> &mdash; Voice-to-Idea workflow with Whisper + GPT integration</li>
+      <li><span class="check">Done</span> &mdash; Dev Bucket for idea tracking and team feedback loop</li>
+      <li><span class="check">Done</span> &mdash; Synthetic audience testing with 8 personas, 14 initiatives scored</li>
+      <li><span class="check">Done</span> &mdash; GitHub repo + Railway CI/CD pipeline</li>
+    </ul>
+  </div>
+
+  <div class="timeline-item timeline-next">
+    <div class="timeline-phase">NEXT &mdash; Phase 1 (Weeks 1-6)</div>
+    <p><span class="badge badge-amber">Up Next</span></p>
+    <ul>
+      <li>Authentication + role-based access (CEO / VP / BD Rep / Admin views)</li>
+      <li>Approval Workflow Engine &mdash; live backend replacing mock data (Score: 9.3/10)</li>
+      <li>Contract &amp; Lease Intelligence &mdash; real escalation tracking (Score: 9.3/10)</li>
+      <li>Idea Pipeline enhancements &mdash; department tagging, data source fields, priority levels</li>
+    </ul>
+  </div>
+
+  <div class="timeline-item">
+    <div class="timeline-phase">Phase 2 (Weeks 7-12)</div>
+    <ul>
+      <li>Personalized BD Dashboards &mdash; "Good Morning Mike" (Score: 8.4/10)</li>
+      <li>Quote persistence + pipeline auto-flow</li>
+      <li>Notification Center (replaces Communication Hub per audience feedback)</li>
+    </ul>
+  </div>
+
+  <div class="timeline-item">
+    <div class="timeline-phase">Phase 3 (Weeks 13-18)</div>
+    <ul>
+      <li>Customer-facing OTT pricing calculator on website (Score: 7.9/10)</li>
+      <li>Customer Portal MVP (Score: 8.0/10 &mdash; upgraded from Tier 3)</li>
+      <li>Acquisition Playbook for Go Freight Hub integration (Score: 8.5/10)</li>
+    </ul>
+  </div>
+
+  <div class="timeline-item">
+    <div class="timeline-phase">Phase 4 (Weeks 19-26)</div>
+    <ul>
+      <li>SaaS tool migration (Insightly first, ZoomInfo last) &mdash; $250K savings</li>
+      <li>Activity Intelligence (renamed from Email Monitoring per audience feedback)</li>
+      <li>TMS integration (read-only feed first)</li>
+    </ul>
+  </div>
+
+  <div class="timeline-item">
+    <div class="timeline-phase">Phase 5 (Weeks 27-36)</div>
+    <ul>
+      <li>Predictive analytics + auto-forecasting</li>
+      <li>Domain Knowledge AI Engine ("super being" per Joe's vision)</li>
+      <li>Warehouse Camera AI (single-facility pilot)</li>
+      <li>Cross-Portfolio Command Center (RK + OTT + Go Freight Hub)</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- 7. FINANCIAL IMPACT -->
+<!-- ════════════════════════════════════════════ -->
+
+<h2>7. Projected Financial Impact</h2>
+
+<div class="grid-2 mb-4">
+  <div class="kpi" style="border: 2px solid #059669;">
+    <div class="kpi-label">Year 1 Conservative</div>
+    <div class="kpi-value" style="font-size: 28px;">$4.2M</div>
+    <div style="font-size: 9px; color: #6b7280;">Combined revenue gain + cost savings</div>
+  </div>
+  <div class="kpi" style="border: 2px solid #0d9488;">
+    <div class="kpi-label">Year 1 Optimistic</div>
+    <div class="kpi-value" style="font-size: 28px;">$11.5M</div>
+    <div style="font-size: 9px; color: #6b7280;">Including acquisition synergy acceleration</div>
+  </div>
+</div>
+
+<table>
+  <tr><th>Driver</th><th>Impact</th><th>Phase</th><th>Confidence</th></tr>
+  <tr><td>Contract escalation recovery</td><td class="text-bold text-green">$200-400K</td><td>Phase 1</td><td><span class="badge badge-green">High</span></td></tr>
+  <tr><td>Approval acceleration (10% sales cycle reduction)</td><td class="text-bold text-green">$1.5-2.6M</td><td>Phase 1</td><td><span class="badge badge-blue">Medium</span></td></tr>
+  <tr><td>SaaS tool elimination (Insightly, ZoomInfo, HubSpot, NewsFrom)</td><td class="text-bold text-green">$250K/year</td><td>Phase 4</td><td><span class="badge badge-green">High</span></td></tr>
+  <tr><td>Customer portal call reduction (30-40%)</td><td class="text-bold text-green">$120K labor</td><td>Phase 3</td><td><span class="badge badge-blue">Medium</span></td></tr>
+  <tr><td>Inbound lead gen (public OTT calculator)</td><td class="text-bold text-green">$2.4M pipeline</td><td>Phase 3</td><td><span class="badge badge-blue">Medium</span></td></tr>
+  <tr><td>Acquisition integration acceleration (Go Freight Hub+)</td><td class="text-bold text-green">$2-5M EBITDA</td><td>Phase 3-5</td><td><span class="badge badge-green">High</span></td></tr>
+</table>
+
+<!-- ════════════════════════════════════════════ -->
+<!-- FOOTER -->
+<!-- ════════════════════════════════════════════ -->
+
+<div style="margin-top: 30px; padding-top: 16px; border-top: 2px solid #0d9488; text-align: center;">
+  <p style="font-size: 10px; color: #6b7280;">RK Logistics CEO Dashboard &mdash; Platform Status Report</p>
+  <p style="font-size: 9px; color: #9ca3af;">Generated March 27, 2026 | Production: rk-dashboard-production.up.railway.app</p>
+</div>
+
+</body>
+</html>

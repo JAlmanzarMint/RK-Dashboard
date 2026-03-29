@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useAuth } from "@/components/AuthProvider";
 import {
   Mic, MicOff, Square, Loader2, Sparkles, Copy, Check, Send,
   AlertTriangle, ChevronRight, Lightbulb, Code2, MessageSquare,
@@ -43,10 +44,6 @@ interface IdeaEntry {
 }
 
 // ── Constants ───────────────────────────────────────────
-const DEV_EMAIL = "developer@rklogistics.com";
-const USER_NAME = "Joe Maclean";
-const USER_EMAIL = "joe@rklogistics.com";
-
 const DEPARTMENTS = [
   "Sales", "Marketing", "Operations", "Compliance", "Engineering",
   "Strategy", "Warehouse", "QC", "Accounting", "Procurement", "Customer Service"
@@ -89,7 +86,7 @@ function getActiveStep(stage: WorkflowStage): number {
 
 // ── Component ───────────────────────────────────────────
 export default function IdeasDashboard() {
-  const [role, setRole] = useState<Role>("stakeholder");
+  const { user } = useAuth();
   const [ideas, setIdeas] = useState<IdeaEntry[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [viewTab, setViewTab] = useState<ViewTab>("pipeline");
@@ -104,9 +101,9 @@ export default function IdeasDashboard() {
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
 
-  const isDev = role === "developer";
-  const userEmail = isDev ? DEV_EMAIL : USER_EMAIL;
-  const userName = isDev ? "Developer" : USER_NAME;
+  const isDev = user?.role === "developer";
+  const userEmail = user?.email || "";
+  const userName = user?.username || "Unknown";
 
   const selected = ideas.find((i) => i.id === selectedId) || null;
 
@@ -301,25 +298,13 @@ export default function IdeasDashboard() {
             Speak your ideas, let AI refine them, approve to the dev bucket, generate implementation prompts.
           </p>
         </div>
-        <div className="flex items-center gap-2 bg-muted rounded-lg p-1">
-          <button
-            onClick={() => setRole("stakeholder")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              role === "stakeholder" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <User className="w-3.5 h-3.5" />
-            Stakeholder
-          </button>
-          <button
-            onClick={() => setRole("developer")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              role === "developer" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Shield className="w-3.5 h-3.5" />
-            Developer
-          </button>
+        <div className="flex items-center gap-2">
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${
+            isDev ? "bg-purple-500/10 text-purple-600" : "bg-blue-500/10 text-blue-600"
+          }`}>
+            {isDev ? <Shield className="w-3.5 h-3.5" /> : <User className="w-3.5 h-3.5" />}
+            {isDev ? "Developer" : "Stakeholder"}
+          </div>
         </div>
       </div>
 

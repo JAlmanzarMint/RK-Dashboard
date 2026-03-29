@@ -5,9 +5,10 @@ import {
   DollarSign, Wallet, Globe, Cpu, Megaphone,
   Sun, Moon, ChevronDown, ChevronRight, Menu, X, Package,
   Compass, UserSearch, Shield, Calculator, Mail, Eye, ClipboardList, Route, Brain,
-  GitBranch, FlaskConical, Lightbulb
+  GitBranch, FlaskConical, Lightbulb, LogOut
 } from "lucide-react";
 import { PerplexityAttribution } from "./PerplexityAttribution";
+import { useAuth } from "./AuthProvider";
 
 // Theme context
 const ThemeContext = createContext<{ dark: boolean; toggle: () => void }>({ dark: false, toggle: () => {} });
@@ -71,6 +72,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [location] = useLocation();
+  const { user, logout } = useAuth();
 
   useEffect(() => {
     if (dark) {
@@ -210,9 +212,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
               >
                 {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               </button>
-              <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
-                RK
-              </div>
+              {user && (
+                <div className="flex items-center gap-2">
+                  <div className="hidden sm:flex flex-col items-end">
+                    <span className="text-xs font-medium leading-none">{user.username}</span>
+                    <span className="text-[10px] text-muted-foreground leading-none mt-0.5">{user.role}</span>
+                  </div>
+                  <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary uppercase">
+                    {user.username.slice(0, 2)}
+                  </div>
+                  <button
+                    onClick={logout}
+                    className="p-1.5 rounded-md hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+                    title="Sign out"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
             </div>
           </header>
 

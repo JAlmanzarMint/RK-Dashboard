@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RK Platform — Idea Pipeline Implementation Report</title>
+<style>
+  @page { margin: 0.7in; size: letter; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; color: #1a1a2e; line-height: 1.55; font-size: 11px; background: #fff; }
+  .page { page-break-after: always; }
+  .page:last-child { page-break-after: auto; }
+
+  /* Cover */
+  .cover { display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 90vh; text-align: center; padding: 2in 1in; }
+  .cover-logo { width: 80px; height: 80px; border-radius: 20px; background: linear-gradient(135deg, #0d9488, #06b6d4); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 32px; font-weight: 800; margin-bottom: 28px; }
+  .cover h1 { font-size: 32px; font-weight: 800; color: #0d9488; margin-bottom: 8px; letter-spacing: -0.5px; }
+  .cover h2 { font-size: 16px; font-weight: 400; color: #64748b; margin-bottom: 32px; }
+  .cover-meta { font-size: 12px; color: #94a3b8; }
+
+  /* Section headings */
+  h2 { font-size: 18px; font-weight: 700; color: #0d9488; margin: 28px 0 12px; padding-bottom: 6px; border-bottom: 2px solid #e2e8f0; }
+  h3 { font-size: 14px; font-weight: 600; color: #1e293b; margin: 18px 0 8px; }
+  h4 { font-size: 12px; font-weight: 600; color: #475569; margin: 12px 0 6px; }
+  p { margin-bottom: 8px; }
+
+  /* Cards */
+  .card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin: 12px 0; }
+  .card-teal { border-left: 4px solid #0d9488; }
+  .card-blue { border-left: 4px solid #3b82f6; }
+  .card-amber { border-left: 4px solid #f59e0b; }
+  .card-purple { border-left: 4px solid #8b5cf6; }
+  .card-green { border-left: 4px solid #10b981; }
+  .card-red { border-left: 4px solid #ef4444; }
+
+  /* KPI row */
+  .kpi-row { display: flex; gap: 12px; margin: 16px 0; flex-wrap: wrap; }
+  .kpi { flex: 1; min-width: 120px; background: #f1f5f9; border-radius: 8px; padding: 12px; text-align: center; }
+  .kpi-value { font-size: 24px; font-weight: 800; color: #0d9488; }
+  .kpi-label { font-size: 10px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+
+  /* Workflow */
+  .workflow { display: flex; align-items: center; gap: 4px; margin: 16px 0; flex-wrap: wrap; }
+  .workflow-step { background: #0d9488; color: white; padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .workflow-arrow { color: #94a3b8; font-size: 16px; font-weight: 700; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 11px; }
+  th { background: #f1f5f9; color: #475569; font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; padding: 8px 10px; text-align: left; border-bottom: 2px solid #e2e8f0; }
+  td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+  tr:nth-child(even) { background: #fafafa; }
+
+  /* Badges */
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600; }
+  .badge-teal { background: #ccfbf1; color: #0d9488; }
+  .badge-blue { background: #dbeafe; color: #3b82f6; }
+  .badge-amber { background: #fef3c7; color: #d97706; }
+  .badge-purple { background: #ede9fe; color: #7c3aed; }
+  .badge-green { background: #d1fae5; color: #059669; }
+  .badge-red { background: #fee2e2; color: #dc2626; }
+
+  /* Lists */
+  ul, ol { margin: 6px 0 10px 20px; }
+  li { margin-bottom: 4px; }
+
+  /* Code */
+  code { background: #f1f5f9; padding: 1px 5px; border-radius: 4px; font-family: 'Fira Code', monospace; font-size: 10px; }
+  pre { background: #1e293b; color: #e2e8f0; padding: 14px; border-radius: 8px; font-size: 10px; overflow-x: auto; margin: 8px 0; line-height: 1.5; white-space: pre-wrap; }
+
+  /* Flow diagram */
+  .flow { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; }
+  .flow-item { display: flex; align-items: flex-start; gap: 10px; }
+  .flow-num { width: 28px; height: 28px; border-radius: 50%; background: #0d9488; color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+  .flow-content { flex: 1; padding-top: 3px; }
+  .flow-content strong { display: block; font-size: 12px; color: #1e293b; }
+  .flow-content span { font-size: 11px; color: #64748b; }
+
+  .divider { border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0; }
+
+  .two-col { display: flex; gap: 16px; }
+  .two-col > div { flex: 1; }
+</style>
+</head>
+<body>
+
+<!-- COVER PAGE -->
+<div class="page cover">
+  <div class="cover-logo">RK</div>
+  <h1>Idea Pipeline</h1>
+  <h2>Voice-to-Dev Workflow Implementation Report</h2>
+  <div class="cover-meta">
+    <p>RK Logistics CEO Dashboard Platform</p>
+    <p>March 25, 2026</p>
+    <p>Prepared for Joe Maclean, CEO</p>
+  </div>
+</div>
+
+<!-- PAGE 2: EXECUTIVE SUMMARY -->
+<div class="page">
+  <h2>Executive Summary</h2>
+  <p>The Idea Pipeline is a new feature on the RK Logistics CEO Dashboard that transforms <strong>spoken ideas into structured, AI-refined feature requests</strong> that flow through an approval process into a developer bucket where implementation prompts are auto-generated for Cursor AI.</p>
+
+  <div class="card card-teal">
+    <h4>The Core Workflow</h4>
+    <div class="workflow">
+      <span class="workflow-step">1. Record Voice</span>
+      <span class="workflow-arrow">--></span>
+      <span class="workflow-step">2. Whisper Transcription</span>
+      <span class="workflow-arrow">--></span>
+      <span class="workflow-step">3. GPT-4o Refinement</span>
+      <span class="workflow-arrow">--></span>
+      <span class="workflow-step">4. Review</span>
+      <span class="workflow-arrow">--></span>
+      <span class="workflow-step">5. Dev Bucket</span>
+      <span class="workflow-arrow">--></span>
+      <span class="workflow-step">6. Cursor Prompt</span>
+    </div>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi">
+      <div class="kpi-value">3</div>
+      <div class="kpi-label">API Endpoints</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-value">2</div>
+      <div class="kpi-label">User Roles</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-value">6</div>
+      <div class="kpi-label">Workflow Stages</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-value">11</div>
+      <div class="kpi-label">Departments</div>
+    </div>
+  </div>
+
+  <h3>What Changed</h3>
+  <p>The previous Voice to Idea and Dev Bucket pages have been replaced with a <strong>single, unified Idea Pipeline page</strong> that combines voice recording, idea management, role-based views, and Cursor prompt generation into one seamless interface.</p>
+
+  <table>
+    <tr><th>Component</th><th>Before</th><th>After</th></tr>
+    <tr><td>Pages</td><td>Voice Capture (VoiceCapture.tsx) + Dev Bucket (DevBucket.tsx) — 2 separate pages</td><td>Idea Pipeline (IdeasDashboard.tsx) — 1 unified page</td></tr>
+    <tr><td>AI Refinement</td><td>Basic title + description</td><td>Structured: title, summary, problem, solution, impact, priority, department, requirements</td></tr>
+    <tr><td>Cursor Prompts</td><td>Not available</td><td>One-click generation with full platform context</td></tr>
+    <tr><td>Feedback Loop</td><td>Not available</td><td>Dev sends ideas back to submitter with notes; submitter resubmits</td></tr>
+    <tr><td>Role Views</td><td>Not available</td><td>Stakeholder / Developer toggle with different actions per role</td></tr>
+    <tr><td>Navigation</td><td>2 nav items (Voice to Idea, Dev Bucket)</td><td>1 nav item (Idea Pipeline) with internal Pipeline/Dev Bucket toggle</td></tr>
+  </table>
+</div>
+
+<!-- PAGE 3: ARCHITECTURE -->
+<div class="page">
+  <h2>Architecture & Files</h2>
+
+  <h3>Files Modified</h3>
+  <table>
+    <tr><th>File</th><th>Change</th></tr>
+    <tr><td><code>server/routes.ts</code></td><td>Complete rewrite: richer Idea model with 14 fields, new <code>/api/ideas/generate</code> endpoint with RK-specific system prompt, new <code>/api/ideas/cursor-prompt</code> endpoint with full platform context, updated CRUD operations</td></tr>
+    <tr><td><code>client/src/pages/IdeasDashboard.tsx</code></td><td>New 500+ line unified page replacing VoiceCapture.tsx + DevBucket.tsx</td></tr>
+    <tr><td><code>client/src/App.tsx</code></td><td>Replaced VoiceCapture/DevBucket routes with single <code>/ideas</code> route</td></tr>
+    <tr><td><code>client/src/components/Layout.tsx</code></td><td>Replaced 2 nav items with single "Idea Pipeline" nav item using Lightbulb icon</td></tr>
+  </table>
+
+  <h3>API Endpoints</h3>
+
+  <div class="card card-blue">
+    <h4>POST /api/transcribe</h4>
+    <p>Accepts audio blob from browser MediaRecorder, sends to OpenAI Whisper (whisper-1 model), returns text transcript. Includes RK-specific vocabulary prompt for accurate transcription of company terms (FTZ, EBITDA, OTT, facility names, etc.).</p>
+  </div>
+
+  <div class="card card-purple">
+    <h4>POST /api/ideas/generate</h4>
+    <p>Takes raw transcript text, uses GPT-4o-mini with a comprehensive RK Logistics system prompt to transform it into a structured idea with: title, summary, problem statement, solution description, business impact, priority level, department assignment, and 3-6 specific functional requirements.</p>
+  </div>
+
+  <div class="card card-green">
+    <h4>POST /api/ideas/cursor-prompt</h4>
+    <p>Takes an approved, structured idea and generates a comprehensive Cursor AI implementation prompt. The system prompt embeds full platform context: tech stack (React + Express + Tailwind + shadcn/ui), project structure, design system tokens, and critical rules (never break existing functionality, maintain dark mode, etc.).</p>
+  </div>
+
+  <div class="card card-teal">
+    <h4>CRUD: /api/ideas</h4>
+    <p><code>POST /api/ideas</code> — Create idea. <code>GET /api/ideas</code> — List all (sorted by date). <code>GET /api/ideas/:id</code> — Get one. <code>PATCH /api/ideas/:id</code> — Update status, notes, feedback, cursor prompt, refined data. <code>DELETE /api/ideas/:id</code> — Remove.</p>
+  </div>
+
+  <h3>Idea Data Model</h3>
+  <table>
+    <tr><th>Field</th><th>Type</th><th>Purpose</th></tr>
+    <tr><td>id</td><td>UUID</td><td>Unique identifier</td></tr>
+    <tr><td>rawTranscript</td><td>string</td><td>Original voice transcription from Whisper</td></tr>
+    <tr><td>refined</td><td>RefinedIdea | null</td><td>AI-structured idea (title, summary, problem, solution, impact, priority, department, requirements)</td></tr>
+    <tr><td>cursorPrompt</td><td>string | null</td><td>Generated Cursor implementation prompt</td></tr>
+    <tr><td>status</td><td>enum</td><td>review | approved | dev | needs_feedback | completed | rejected</td></tr>
+    <tr><td>submittedBy</td><td>string</td><td>Display name of submitter</td></tr>
+    <tr><td>submittedByEmail</td><td>string</td><td>Email for identity matching in feedback flow</td></tr>
+    <tr><td>feedbackNote</td><td>string | null</td><td>Developer's feedback when sending idea back</td></tr>
+    <tr><td>ceoNotes</td><td>string</td><td>CEO's additional notes</td></tr>
+    <tr><td>devNotes</td><td>string</td><td>Developer's implementation notes</td></tr>
+    <tr><td>createdAt</td><td>ISO string</td><td>Creation timestamp</td></tr>
+    <tr><td>updatedAt</td><td>ISO string</td><td>Last update timestamp</td></tr>
+  </table>
+</div>
+
+<!-- PAGE 4: UI LAYOUT -->
+<div class="page">
+  <h2>User Interface — 3-Panel Layout</h2>
+
+  <h3>Panel 1: Voice Recorder (Full Width, Top)</h3>
+  <div class="card card-teal">
+    <ul>
+      <li><strong>Large circular microphone button</strong> — Idle (teal, tap to record), Recording (red with pulse animation), Processing (loading spinner)</li>
+      <li><strong>Stage indicator</strong> — Shows current step: "Transcribing with Whisper..." / "Refining idea with AI..." / "Idea created and ready for review!"</li>
+      <li><strong>Workflow step pills</strong> — 6-step visual: Record > Transcribe > AI Refine > Approve > Dev Bucket > Cursor Prompt. Active step is highlighted in primary color.</li>
+      <li><strong>Department tags</strong> — All 11 departments displayed as tags to remind the speaker: Sales, Marketing, Operations, Compliance, Engineering, Strategy, Warehouse, QC, Accounting, Procurement, Customer Service</li>
+    </ul>
+  </div>
+
+  <h3>Panel 2: Ideas List (Left Column, 1/3 Width)</h3>
+  <div class="card card-blue">
+    <ul>
+      <li><strong>Pipeline / Dev Bucket toggle</strong> — Tab switch with count badges</li>
+      <li><strong>Pipeline view</strong> — Shows ideas in review, needs_feedback, and approved statuses</li>
+      <li><strong>Dev Bucket view</strong> — Shows ideas in dev and completed statuses</li>
+      <li><strong>Idea cards</strong> — Title, summary preview, status pill, priority badge, department, submitter name</li>
+      <li><strong>"Action needed" tag</strong> — Amber highlight on cards where feedback has been sent back to the current user</li>
+      <li><strong>Scrollable list</strong> — Max 60vh with overflow scroll</li>
+    </ul>
+  </div>
+
+  <h3>Panel 3: Detail Panel (Right Column, 2/3 Width)</h3>
+  <div class="card card-purple">
+    <ul>
+      <li><strong>Header</strong> — Idea title, status badge, priority badge, department badge, submitter and date</li>
+      <li><strong>Feedback banner</strong> — Amber alert when status is needs_feedback, showing developer's note</li>
+      <li><strong>Voice transcript</strong> — Italic, quoted, in a muted background card</li>
+      <li><strong>Refined sections</strong> — Summary, Problem, Impact, Solution, Requirements (numbered list)</li>
+      <li><strong>Cursor prompt</strong> — (Developer-only) Dark code block with copy-to-clipboard button</li>
+      <li><strong>Feedback textarea</strong> — (Developer-only) Opens on demand for sending feedback notes back</li>
+      <li><strong>Action buttons</strong> — Role-dependent (see next section)</li>
+    </ul>
+  </div>
+
+  <h2>Role-Based Actions</h2>
+
+  <div class="two-col">
+    <div>
+      <h3>Stakeholder View</h3>
+      <table>
+        <tr><th>Status</th><th>Button</th></tr>
+        <tr><td><span class="badge badge-blue">In Review</span></td><td>Approve & Send to Dev Bucket (green)</td></tr>
+        <tr><td><span class="badge badge-amber">Needs Feedback</span></td><td>Resubmit for Review (blue)</td></tr>
+        <tr><td><span class="badge badge-purple">Dev Bucket</span></td><td>Status text: "Waiting for developer review"</td></tr>
+      </table>
+    </div>
+    <div>
+      <h3>Developer View</h3>
+      <table>
+        <tr><th>Status</th><th>Buttons</th></tr>
+        <tr><td><span class="badge badge-blue">In Review</span></td><td>Approve to Dev Bucket + Send Back</td></tr>
+        <tr><td><span class="badge badge-purple">Dev (no prompt)</span></td><td>Generate Cursor Prompt + Send Back</td></tr>
+        <tr><td><span class="badge badge-purple">Dev (prompt ready)</span></td><td>"Copy it above" + Mark Complete + Send Back</td></tr>
+        <tr><td><span class="badge badge-amber">Generating</span></td><td>Spinner: "Generating Cursor prompt..."</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 5: FEEDBACK FLOW + HOW TO USE -->
+<div class="page">
+  <h2>Send-Back Feedback Flow</h2>
+  <p>The developer can send any idea back to its original submitter with clarifying questions or feedback. This creates a collaborative loop between leadership and engineering.</p>
+
+  <div class="flow">
+    <div class="flow-item">
+      <div class="flow-num">1</div>
+      <div class="flow-content">
+        <strong>Developer clicks "Send Back to [Name]"</strong>
+        <span>A feedback textarea opens below the detail panel</span>
+      </div>
+    </div>
+    <div class="flow-item">
+      <div class="flow-num">2</div>
+      <div class="flow-content">
+        <strong>Developer types feedback</strong>
+        <span>E.g., "Can you clarify which HubSpot fields contain the license data? Also, should the 90/60/30 day alerts go to the practitioner or to the account manager?"</span>
+      </div>
+    </div>
+    <div class="flow-item">
+      <div class="flow-num">3</div>
+      <div class="flow-content">
+        <strong>Clicks "Send Feedback" (disabled if empty)</strong>
+        <span>Idea status flips to needs_feedback, feedbackNote is saved, any existing cursorPrompt is cleared</span>
+      </div>
+    </div>
+    <div class="flow-item">
+      <div class="flow-num">4</div>
+      <div class="flow-content">
+        <strong>Idea moves from Dev Bucket back to Pipeline</strong>
+        <span>The original submitter sees an amber banner: "Feedback from Developer -- action required" with the note text</span>
+      </div>
+    </div>
+    <div class="flow-item">
+      <div class="flow-num">5</div>
+      <div class="flow-content">
+        <strong>Submitter addresses feedback and clicks "Resubmit for Review"</strong>
+        <span>Idea returns to review status and enters the cycle again</span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <h2>How to Use the Idea Pipeline</h2>
+
+  <h3>Step 1: Record Your Idea</h3>
+  <div class="card card-teal">
+    <p>Navigate to <strong>Strategy > Idea Pipeline</strong> in the sidebar. Click the large teal microphone button. Speak naturally, but make sure to include:</p>
+    <ol>
+      <li><strong>Department name:</strong> "For the Sales team..." or "Operations needs..."</li>
+      <li><strong>Feature request:</strong> "I want to add a pipeline visualization that shows..."</li>
+      <li><strong>Data source:</strong> "...pulling data from Insightly deals and QuickBooks invoices..."</li>
+      <li><strong>Why it matters:</strong> "...so reps can see their conversion funnel without switching apps."</li>
+    </ol>
+  </div>
+
+  <h3>Example Recordings</h3>
+  <div class="card card-blue">
+    <p><strong>Example 1:</strong> "For <strong>Sales and BD</strong>, I want a deal pipeline visualization that shows stage-by-stage conversion rates. The data should come from <strong>Insightly CRM</strong> deal stages and close dates. This would help Peter's team identify where deals are getting stuck."</p>
+  </div>
+  <div class="card card-purple">
+    <p><strong>Example 2:</strong> "<strong>Operations</strong> needs a real-time pick-pack dashboard. Data should pull from the <strong>warehouse management module</strong> showing orders awaiting pick, currently in packing, and shipped today. Include carrier breakdown -- UPS, FedEx, USPS."</p>
+  </div>
+  <div class="card card-green">
+    <p><strong>Example 3:</strong> "For <strong>Compliance</strong>, we need automated license expiration alerts. Pull practitioner license data from <strong>customer records</strong> and send email reminders 90 days, 60 days, and 30 days before expiry."</p>
+  </div>
+  <div class="card card-amber">
+    <p><strong>Example 4:</strong> "<strong>Accounting</strong> needs an AR aging dashboard on the platform. Pull aging data from <strong>QuickBooks</strong> and show 30/60/90/120 day buckets with customer names. David's team is manually pulling this report every week."</p>
+  </div>
+
+  <h3>Step 2: Review AI Refinement</h3>
+  <p>After recording, the idea appears in the Pipeline list with status "In Review." Click on it to see the AI-structured version with title, summary, problem statement, proposed solution, business impact, priority, department, and specific requirements.</p>
+
+  <h3>Step 3: Approve to Dev Bucket</h3>
+  <p>If the AI refinement looks good, click <strong>"Approve & Send to Dev Bucket"</strong>. The idea moves to the Dev Bucket tab, where the developer can pick it up.</p>
+
+  <h3>Step 4: Developer Generates Cursor Prompt</h3>
+  <p>The developer switches to the Developer role toggle, opens the Dev Bucket, selects the idea, and clicks <strong>"Generate Cursor Prompt"</strong>. The AI creates a production-ready implementation prompt with full platform context that can be copied directly into Cursor.</p>
+</div>
+
+<!-- PAGE 6: TECHNICAL DETAILS + DEPARTMENTS -->
+<div class="page">
+  <h2>Supported Departments</h2>
+  <table>
+    <tr><th>Department</th><th>Typical Idea Topics</th><th>Likely Data Sources</th></tr>
+    <tr><td><span class="badge badge-teal">Sales</span></td><td>Pipeline dashboards, lead scoring, quote automation</td><td>Insightly CRM, ZoomInfo</td></tr>
+    <tr><td><span class="badge badge-blue">Marketing</span></td><td>Campaign analytics, content engine, competitor tracking</td><td>Email platforms, website analytics</td></tr>
+    <tr><td><span class="badge badge-green">Operations</span></td><td>Pick-pack dashboards, facility utilization, route optimization</td><td>WMS, TMS, facility cameras</td></tr>
+    <tr><td><span class="badge badge-amber">Compliance</span></td><td>License tracking, audit logs, regulatory alerts</td><td>Customer records, regulatory databases</td></tr>
+    <tr><td><span class="badge badge-purple">Engineering</span></td><td>Platform features, API integrations, performance improvements</td><td>GitHub, deployment logs, error tracking</td></tr>
+    <tr><td><span class="badge badge-teal">Strategy</span></td><td>Market analysis, competitive intelligence, M&A tracking</td><td>Market data, news APIs, financial data</td></tr>
+    <tr><td><span class="badge badge-blue">Warehouse</span></td><td>Inventory management, space optimization, labor scheduling</td><td>WMS, camera feeds, sensor data</td></tr>
+    <tr><td><span class="badge badge-green">QC</span></td><td>Quality checks, inspection workflows, defect tracking</td><td>Inspection logs, customer complaints</td></tr>
+    <tr><td><span class="badge badge-amber">Accounting</span></td><td>AR/AP dashboards, cash flow forecasting, invoice automation</td><td>QuickBooks, bank feeds</td></tr>
+    <tr><td><span class="badge badge-purple">Procurement</span></td><td>Vendor management, PO tracking, cost analysis</td><td>ERP, vendor portals</td></tr>
+    <tr><td><span class="badge badge-teal">Customer Service</span></td><td>Ticket dashboards, SLA tracking, customer health scores</td><td>Email, CRM, support tickets</td></tr>
+  </table>
+
+  <h2>Technical Implementation Details</h2>
+
+  <h3>AI System Prompts</h3>
+  <div class="card card-blue">
+    <h4>Whisper Transcription Prompt</h4>
+    <p>Includes RK-specific vocabulary: company names (RK Logistics, On Time Trucking, Go Freight Hub), facility names (Patterson, Fremont, Goodyear, Vista Ridge, Kato), business terms (FTZ, EBITDA, BD), systems (Insightly, ZoomInfo), and all 11 department names for maximum transcription accuracy.</p>
+  </div>
+
+  <div class="card card-purple">
+    <h4>GPT Refinement Prompt</h4>
+    <p>Full RK Logistics context: company description (3PL, 12+ facilities, 1.78M sqft), business units (RK Logistics, OTT, Go Freight Hub), customer list (LAM Research, Tesla, Applied Materials, Corning, Netflix), departments, leadership team, and technology stack. Returns structured JSON with 8 fields.</p>
+  </div>
+
+  <div class="card card-green">
+    <h4>Cursor Prompt Generation</h4>
+    <p>Embeds full platform technical context: React 18 + Vite + Express 5 stack, Tailwind CSS 3 + shadcn/ui design system, project directory structure, CSS custom properties (--primary: 174 72% 33%), Satoshi font, dark mode support, and critical implementation rules.</p>
+  </div>
+
+  <h3>Security & Environment</h3>
+  <table>
+    <tr><th>Variable</th><th>Location</th><th>Purpose</th></tr>
+    <tr><td><code>OPENAI_API_KEY</code></td><td>.env + Railway env vars</td><td>Authenticates with OpenAI for Whisper + GPT-4o-mini</td></tr>
+    <tr><td><code>NODE_ENV</code></td><td>Railway auto-set</td><td>Controls production vs development mode</td></tr>
+    <tr><td><code>PORT</code></td><td>Railway auto-set</td><td>Server port (Railway assigns dynamically)</td></tr>
+  </table>
+
+  <h3>Persistence Note</h3>
+  <p>Ideas are currently stored in server memory (Map). A restart clears all ideas. For production persistence, the next step is to add a database model (PostgreSQL via Drizzle ORM) with the full Idea schema. The API endpoints are already structured for easy migration to database-backed storage.</p>
+</div>
+
+<!-- PAGE 7: NEXT STEPS -->
+<div class="page">
+  <h2>Deployment</h2>
+  <div class="card card-teal">
+    <p>The Idea Pipeline has been committed and pushed to the <code>master</code> branch on GitHub. Railway auto-deploys from the master branch, so the feature will be live shortly after the push.</p>
+    <ul>
+      <li><strong>Commit:</strong> "Implement full Voice-to-Dev Idea Pipeline"</li>
+      <li><strong>Files changed:</strong> 4 files modified, 928 insertions, 55 deletions</li>
+      <li><strong>New file:</strong> <code>client/src/pages/IdeasDashboard.tsx</code></li>
+      <li><strong>Build status:</strong> Successful (0 errors)</li>
+    </ul>
+  </div>
+
+  <h2>Next Steps & Roadmap</h2>
+
+  <div class="flow">
+    <div class="flow-item">
+      <div class="flow-num">1</div>
+      <div class="flow-content">
+        <strong>Database Persistence</strong>
+        <span>Migrate in-memory idea storage to PostgreSQL via Drizzle ORM. Add Idea model with full schema, enable data persistence across server restarts.</span>
+      </div>
+    </div>
+    <div class="flow-item">
+      <div class="flow-num">2</div>
+      <div class="flow-content">
+        <strong>Authentication Integration</strong>
+        <span>Connect role-based access to real user authentication. Map DEV_EMAIL to actual developer accounts. Remove the manual role toggle.</span>
+      </div>
+    </div>
+    <div class="flow-item">
+      <div class="flow-num">3</div>
+      <div class="flow-content">
+        <strong>Email Notifications</strong>
+        <span>Send email alerts when: an idea is approved to dev bucket, feedback is sent back, a Cursor prompt is generated. Keeps stakeholders informed without checking the dashboard.</span>
+      </div>
+    </div>
+    <div class="flow-item">
+      <div class="flow-num">4</div>
+      <div class="flow-content">
+        <strong>Idea Editing</strong>
+        <span>Allow stakeholders to edit the AI-refined fields (title, problem, solution, etc.) before approving. Currently the refinement is read-only after generation.</span>
+      </div>
+    </div>
+    <div class="flow-item">
+      <div class="flow-num">5</div>
+      <div class="flow-content">
+        <strong>Analytics Dashboard</strong>
+        <span>Track idea throughput: ideas per week, average time from recording to implementation, department distribution, priority breakdown, feedback loop counts.</span>
+      </div>
+    </div>
+    <div class="flow-item">
+      <div class="flow-num">6</div>
+      <div class="flow-content">
+        <strong>Multi-User Support</strong>
+        <span>Enable multiple team members to submit ideas with their own identity. Track ideas by submitter. Show "My Ideas" vs "All Ideas" views.</span>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <div class="card card-teal" style="text-align: center; padding: 24px;">
+    <h3 style="margin-bottom: 8px;">The Idea Pipeline is Live</h3>
+    <p>Navigate to <strong>Strategy > Idea Pipeline</strong> in the sidebar to start recording ideas.</p>
+    <p style="color: #64748b; margin-top: 8px;">Speak your vision. AI structures it. Dev builds it.</p>
+  </div>
+</div>
+
+</body>
+</html>
